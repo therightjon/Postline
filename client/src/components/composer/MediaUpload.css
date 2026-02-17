@@ -1,0 +1,56 @@
+.media-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--muted-foreground);
+}
+
+.media-dropzone:hover {
+  border-color: var(--brand);
+  background: var(--brand-muted);
+  color: var(--foreground);
+}
+
+.media-dropzone-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.media-dropzone-hint {
+  font-size: 0.75rem;
+}
+
+.media-preview {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.media-preview img {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+
+.media-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.6) !important;
+  color: white !important;
+  border-radius: 100px !important;
+  backdrop-filter: blur(8px);
+  padding: 4px !important;
+  width: 28px;
+  height: 28px;
+  box-shadow: none !important;
+}

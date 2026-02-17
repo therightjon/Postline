@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+client/dist/
+
+# Environment / secrets
+api/local.settings.json
+client/.env
+client/.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# AI / tooling
+.github/instructions/codacy.instructions.md

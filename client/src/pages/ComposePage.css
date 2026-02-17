@@ -1,0 +1,49 @@
+.compose-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.compose-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.compose-section {
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.compose-textarea {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  padding: var(--space-md);
+  border-radius: var(--radius);
+}
+
+.compose-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.compose-preview {
+  position: sticky;
+  top: var(--space-lg);
+}
+
+@media (max-width: 900px) {
+  .compose-layout {
+    grid-template-columns: 1fr;
+  }
+  .compose-preview {
+    position: static;
+  }
+}

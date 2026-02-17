@@ -1,0 +1,37 @@
+.platform-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.platform-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 16px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.platform-toggle:hover {
+  border-color: var(--brand);
+  color: var(--foreground);
+}
+
+.platform-toggle.active {
+  color: var(--foreground);
+  border-color: var(--brand);
+  background: var(--brand-muted);
+}
+
+.platform-toggle.active span {
+  font-weight: 600;
+}

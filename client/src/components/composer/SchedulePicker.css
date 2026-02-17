@@ -1,0 +1,63 @@
+.schedule-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.schedule-mode-toggle {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.schedule-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 10px 16px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.schedule-mode-btn:hover {
+  border-color: var(--brand);
+  color: var(--foreground);
+}
+
+.schedule-mode-btn.active {
+  background: var(--brand-muted);
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.schedule-datetime {
+  animation: fadeIn var(--transition-base) ease-out;
+}
+
+.schedule-input {
+  color-scheme: light;
+}
+
+[data-theme="dark"] .schedule-input {
+  color-scheme: dark;
+}
+
+.schedule-summary {
+  margin-top: var(--space-sm);
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.schedule-summary strong {
+  color: var(--brand);
+}
