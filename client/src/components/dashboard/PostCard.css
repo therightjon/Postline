@@ -31,6 +31,10 @@
   line-height: 1;
 }
 
+[data-theme="dark"] .post-platform-badge {
+  opacity: 0.7;
+}
+
 .post-card-content {
   font-size: 0.925rem;
   line-height: 1.6;
@@ -70,6 +74,10 @@
 
 .post-card-date.post-card-published {
   color: #16a34a;
+}
+
+[data-theme="dark"] .post-card-date.post-card-published {
+  color: #4ade80;
 }
 
 .post-card-date.post-card-scheduled {

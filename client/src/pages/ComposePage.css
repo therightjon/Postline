@@ -8,12 +8,16 @@
 .compose-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: 36px;
 }
 
 .compose-section {
   padding: var(--space-lg);
   box-shadow: var(--shadow-md);
+}
+
+.compose-section header {
+  margin-bottom: 10px;
 }
 
 .compose-textarea {
