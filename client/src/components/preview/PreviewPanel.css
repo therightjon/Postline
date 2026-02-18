@@ -35,12 +35,79 @@
   letter-spacing: 0.06em;
 }
 
+.preview-card-label-x {
+  background: #2f3336;
+  color: #e7e9ea;
+  border-bottom: 1px solid #2f3336;
+}
+
 /* ============================================ */
-/* INSTAGRAM  — white UI, system-ui font        */
+/* Preview — Light / Dark Theme Variables       */
+/* ============================================ */
+:root {
+  --ig-bg: #fff;
+  --ig-text: #262626;
+  --ig-text-muted: #8e8e8e;
+  --ig-image-bg: #efefef;
+  --ig-placeholder: #c7c7c7;
+
+  --fb-bg: #fff;
+  --fb-text: #1c1e21;
+  --fb-text-muted: #65676b;
+  --fb-hover: #f2f3f5;
+  --fb-divider: #ced0d4;
+
+  --x-bg: #fff;
+  --x-text: #0f1419;
+  --x-text-muted: #536471;
+  --x-border-color: #cfd9de;
+  --x-avatar-bg: #cfd9de;
+  --x-placeholder: #adb5be;
+
+  --li-bg: #fff;
+  --li-text: rgba(0,0,0,.9);
+  --li-text-muted: rgba(0,0,0,.6);
+  --li-text-faint: rgba(0,0,0,.45);
+  --li-border-color: #e0dfdc;
+  --li-hover: rgba(0,0,0,.08);
+  --li-reaction-border: #fff;
+}
+
+[data-theme="dark"] {
+  --ig-bg: #000;
+  --ig-text: #f5f5f5;
+  --ig-text-muted: #a8a8a8;
+  --ig-image-bg: #1a1a1a;
+  --ig-placeholder: #555;
+
+  --fb-bg: #242526;
+  --fb-text: #e4e6eb;
+  --fb-text-muted: #b0b3b8;
+  --fb-hover: #3a3b3c;
+  --fb-divider: #3e4042;
+
+  --x-bg: #000;
+  --x-text: #e7e9ea;
+  --x-text-muted: #71767b;
+  --x-border-color: #2f3336;
+  --x-avatar-bg: #333639;
+  --x-placeholder: #555;
+
+  --li-bg: #1b1f23;
+  --li-text: rgba(255,255,255,.9);
+  --li-text-muted: rgba(255,255,255,.6);
+  --li-text-faint: rgba(255,255,255,.45);
+  --li-border-color: #38434f;
+  --li-hover: rgba(255,255,255,.08);
+  --li-reaction-border: #1b1f23;
+}
+
+/* ============================================ */
+/* INSTAGRAM  — light/dark adaptive             */
 /* ============================================ */
 .ig-post {
-  background: #000;
-  color: #f5f5f5;
+  background: var(--ig-bg);
+  color: var(--ig-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -82,19 +149,19 @@
 .ig-username {
   font-size: 13px;
   font-weight: 600;
-  color: #f5f5f5;
+  color: var(--ig-text);
   line-height: 1.2;
 }
 
 .ig-location {
   font-size: 11px;
-  color: #a8a8a8;
+  color: var(--ig-text-muted);
   line-height: 1.2;
 }
 
 .ig-more {
   margin-left: auto;
-  color: #f5f5f5;
+  color: var(--ig-text);
   font-size: 16px;
   cursor: default;
   letter-spacing: 2px;
@@ -103,7 +170,7 @@
 .ig-image-area {
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: #1a1a1a;
+  background: var(--ig-image-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -121,7 +188,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #555;
+  color: var(--ig-placeholder);
   font-size: 12px;
 }
 
@@ -134,7 +201,7 @@
 
 .ig-actions svg {
   cursor: pointer;
-  color: #f5f5f5;
+  color: var(--ig-text);
   transition: transform 0.15s ease;
 }
 
@@ -150,13 +217,13 @@
   padding: 0 12px 4px;
   font-size: 13px;
   font-weight: 600;
-  color: #f5f5f5;
+  color: var(--ig-text);
 }
 
 .ig-caption {
   padding: 0 12px 8px;
   font-size: 13px;
-  color: #f5f5f5;
+  color: var(--ig-text);
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
@@ -168,24 +235,24 @@
 }
 
 .ig-caption-placeholder {
-  color: #555;
+  color: var(--ig-placeholder);
   font-style: italic;
 }
 
 .ig-time {
   padding: 0 12px 10px;
   font-size: 10px;
-  color: #777;
+  color: var(--ig-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 /* ============================================ */
-/* FACEBOOK  — dark mode FB feed style          */
+/* FACEBOOK  — light/dark adaptive              */
 /* ============================================ */
 .fb-post {
-  background: #242526;
-  color: #e4e6eb;
+  background: var(--fb-bg);
+  color: var(--fb-text);
   font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
   border-radius: 8px;
 }
@@ -218,7 +285,7 @@
 .fb-name {
   font-size: 14px;
   font-weight: 600;
-  color: #e4e6eb;
+  color: var(--fb-text);
   line-height: 1.2;
 }
 
@@ -227,7 +294,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #b0b3b8;
+  color: var(--fb-text-muted);
   margin-top: 1px;
 }
 
@@ -244,26 +311,26 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: #b0b3b8;
+  color: var(--fb-text-muted);
   font-size: 18px;
   cursor: default;
 }
 
 .fb-more-btn:hover {
-  background: #3a3b3c;
+  background: var(--fb-hover);
 }
 
 .fb-content {
   padding: 8px 16px 12px;
   font-size: 15px;
   line-height: 1.47;
-  color: #e4e6eb;
+  color: var(--fb-text);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .fb-content-placeholder {
-  color: #65676b;
+  color: var(--fb-text-muted);
   font-style: italic;
 }
 
@@ -284,7 +351,7 @@
   justify-content: space-between;
   padding: 8px 16px;
   font-size: 13px;
-  color: #b0b3b8;
+  color: var(--fb-text-muted);
 }
 
 .fb-reaction-icons {
@@ -301,13 +368,13 @@
   justify-content: center;
   font-size: 10px;
   margin-right: -4px;
-  border: 2px solid #242526;
+  border: 2px solid var(--fb-bg);
   position: relative;
 }
 
 .fb-divider {
   height: 1px;
-  background: #3e4042;
+  background: var(--fb-divider);
   margin: 0 16px;
 }
 
@@ -325,14 +392,14 @@
   padding: 8px 0;
   font-size: 14px;
   font-weight: 600;
-  color: #b0b3b8;
+  color: var(--fb-text-muted);
   border-radius: 4px;
   cursor: default;
   transition: background 0.15s;
 }
 
 .fb-action-btn:hover {
-  background: #3a3b3c;
+  background: var(--fb-hover);
 }
 
 .fb-action-btn svg {
@@ -341,13 +408,13 @@
 }
 
 /* ============================================ */
-/* X (TWITTER) — dark mode X/Twitter UI         */
+/* X (TWITTER) — light/dark adaptive            */
 /* ============================================ */
 .x-post {
-  background: #000;
-  color: #e7e9ea;
+  background: var(--x-bg);
+  color: var(--x-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'TwitterChirp', sans-serif;
-  border: 1px solid #2f3336;
+  border: 1px solid var(--x-border-color);
   border-radius: 0;
 }
 
@@ -361,13 +428,13 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #333639;
+  background: var(--x-avatar-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 14px;
-  color: #e7e9ea;
+  color: var(--x-text);
   flex-shrink: 0;
 }
 
@@ -386,7 +453,7 @@
 .x-display-name {
   font-size: 15px;
   font-weight: 700;
-  color: #e7e9ea;
+  color: var(--x-text);
   line-height: 1.2;
 }
 
@@ -409,18 +476,18 @@
 
 .x-handle {
   font-size: 15px;
-  color: #71767b;
+  color: var(--x-text-muted);
   line-height: 1.2;
 }
 
 .x-dot {
-  color: #71767b;
+  color: var(--x-text-muted);
   font-size: 13px;
 }
 
 .x-time {
   font-size: 15px;
-  color: #71767b;
+  color: var(--x-text-muted);
 }
 
 .x-more-btn {
@@ -430,7 +497,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: #71767b;
+  color: var(--x-text-muted);
   cursor: default;
   margin-top: -4px;
 }
@@ -444,13 +511,13 @@
   padding: 4px 16px 12px 66px;
   font-size: 15px;
   line-height: 1.4;
-  color: #e7e9ea;
+  color: var(--x-text);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .x-content-placeholder {
-  color: #555;
+  color: var(--x-placeholder);
   font-style: italic;
 }
 
@@ -466,7 +533,7 @@
   margin: 0 16px 12px 66px;
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid #2f3336;
+  border: 1px solid var(--x-border-color);
   max-height: 280px;
 }
 
@@ -488,7 +555,7 @@
   gap: 4px;
   padding: 8px;
   border-radius: 50%;
-  color: #71767b;
+  color: var(--x-text-muted);
   font-size: 13px;
   cursor: default;
   transition: all 0.15s;
@@ -535,13 +602,13 @@
 }
 
 /* ============================================ */
-/* LINKEDIN — dark mode LinkedIn feed style     */
+/* LINKEDIN — light/dark adaptive               */
 /* ============================================ */
 .li-post {
-  background: #1b1f23;
-  color: rgba(255,255,255,.9);
+  background: var(--li-bg);
+  color: var(--li-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  border: 1px solid #38434f;
+  border: 1px solid var(--li-border-color);
   border-radius: 8px;
 }
 
@@ -573,13 +640,13 @@
 .li-name {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255,255,255,.9);
+  color: var(--li-text);
   line-height: 1.3;
 }
 
 .li-headline {
   font-size: 12px;
-  color: rgba(255,255,255,.6);
+  color: var(--li-text-muted);
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -592,7 +659,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: rgba(255,255,255,.45);
+  color: var(--li-text-faint);
   margin-top: 1px;
 }
 
@@ -608,30 +675,30 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: rgba(255,255,255,.5);
+  color: var(--li-text-muted);
   cursor: default;
 }
 
 .li-more-btn:hover {
-  background: rgba(255,255,255,.08);
+  background: var(--li-hover);
 }
 
 .li-content {
   padding: 10px 16px 12px;
   font-size: 14px;
   line-height: 1.5;
-  color: rgba(255,255,255,.9);
+  color: var(--li-text);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .li-content-placeholder {
-  color: rgba(255,255,255,.3);
+  color: var(--li-text-faint);
   font-style: italic;
 }
 
 .li-see-more {
-  color: rgba(255,255,255,.6);
+  color: var(--li-text-muted);
   font-weight: 600;
   cursor: pointer;
 }
@@ -663,7 +730,7 @@
   justify-content: space-between;
   padding: 8px 16px;
   font-size: 12px;
-  color: rgba(255,255,255,.5);
+  color: var(--li-text-muted);
 }
 
 .li-reaction-emojis {
@@ -680,12 +747,12 @@
   justify-content: center;
   font-size: 10px;
   margin-right: -2px;
-  border: 1px solid #1b1f23;
+  border: 1px solid var(--li-reaction-border);
 }
 
 .li-divider {
   height: 1px;
-  background: #38434f;
+  background: var(--li-border-color);
   margin: 0 16px;
 }
 
@@ -703,15 +770,15 @@
   padding: 8px 4px;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255,255,255,.55);
+  color: var(--li-text-muted);
   border-radius: 4px;
   cursor: default;
   transition: background 0.15s;
 }
 
 .li-action-btn:hover {
-  background: rgba(255,255,255,.08);
-  color: rgba(255,255,255,.75);
+  background: var(--li-hover);
+  color: var(--li-text);
 }
 
 .li-action-btn svg {

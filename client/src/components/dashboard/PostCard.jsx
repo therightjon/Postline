@@ -4,10 +4,10 @@ import { Edit3, Trash2, Send, Clock, CheckCircle, XCircle, Instagram, Facebook, 
 import './PostCard.css';
 
 const PLATFORM_META = {
-  instagram: { short: 'IG', color: 'var(--color-instagram)', icon: Instagram },
-  facebook: { short: 'FB', color: 'var(--color-facebook)', icon: Facebook },
-  twitter: { short: 'X', color: 'var(--color-twitter)', icon: Twitter },
-  linkedin: { short: 'LI', color: 'var(--color-linkedin)', icon: Linkedin },
+  instagram: { label: 'Instagram', color: 'var(--color-instagram)', icon: Instagram },
+  facebook: { label: 'Facebook', color: 'var(--color-facebook)', icon: Facebook },
+  twitter: { label: 'X (Twitter)', color: 'var(--color-twitter)', icon: Twitter },
+  linkedin: { label: 'LinkedIn', color: 'var(--color-linkedin)', icon: Linkedin },
 };
 
 const STATUS_ICONS = {
@@ -50,7 +50,7 @@ export default function PostCard({ post }) {
                 }}
               >
                 <Icon size={12} />
-                {platform.short}
+                {platform.label}
               </span>
             );
           })}

@@ -12,7 +12,7 @@ import './ComposePage.css';
 export default function ComposePage() {
   const navigate = useNavigate();
   const [content, setContent] = useState('');
-  const [platforms, setPlatforms] = useState(['twitter']);
+  const [platforms, setPlatforms] = useState(['instagram']);
   const [mediaUrl, setMediaUrl] = useState(null);
   const [mediaFile, setMediaFile] = useState(null);
   const [scheduleMode, setScheduleMode] = useState('now');

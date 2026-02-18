@@ -4,6 +4,32 @@
 
 ---
 
+## Local Context Folder (.context)
+
+Use `.context/` for repository-local agent coordination artifacts (plans, notes,
+and agent guidance) that should live alongside the codebase.
+
+Current structure in this repository:
+
+```
+.context/
+├── agents/
+│   └── AGENTS.md                 # Agent operating guide for this repo
+├── docs/                         # Supporting docs for agent workflows
+└── plans/
+    └── email-custom-vars-plan.md # Example implementation plan
+```
+
+Guidelines:
+
+- Keep planning and coordination documents under `.context/plans/`.
+- Keep reusable process/docs content under `.context/docs/`.
+- Keep agent instruction files under `.context/agents/`.
+- Prefer adding new context artifacts in `.context/` instead of cluttering
+  the code directories.
+- When creating new plans, use clear, feature-specific filenames
+  (for example `feature-name-plan.md`).
+
 ## Core Principles
 
 1. **Reuse first.** Always reuse existing components, hooks, forms, utilities, services, and patterns. Only extend them when genuinely needed. Never replace or invent new patterns unless no suitable option exists.

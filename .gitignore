@@ -11,6 +11,7 @@ client/.env.*
 
 # OS files
 .DS_Store
+**/.DS_Store
 Thumbs.db
 
 # Editor
@@ -25,3 +26,8 @@ npm-debug.log*
 
 # AI / tooling
 .github/instructions/codacy.instructions.md
+.claude/
+.context/
+
+# Azure Functions
+api/dist/
