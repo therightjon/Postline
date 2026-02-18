@@ -13,8 +13,7 @@
     "@azure/storage-blob": "^12.17.0",
     "jsonwebtoken": "^9.0.0",
     "jwks-rsa": "^3.1.0",
-    "node-fetch": "^3.3.0",
-    "multipart-formdata": "^0.1.2"
+    "node-fetch": "^3.3.0"
   },
   "devDependencies": {}
 }

@@ -4,6 +4,43 @@ import { createItem, queryItems, deleteItem } from '../services/cosmos.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const CONTAINER = 'socialAccounts';
+const APP_BASE_URL_RAW = process.env.APP_BASE_URL;
+const API_BASE_URL_RAW = process.env.API_BASE_URL;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.WEBSITE_SITE_NAME);
+
+if (IS_PRODUCTION && (!APP_BASE_URL_RAW || !API_BASE_URL_RAW)) {
+  throw new Error('APP_BASE_URL and API_BASE_URL must be set in production');
+}
+
+const APP_BASE_URL = normalizeBaseUrl(APP_BASE_URL_RAW || 'http://localhost:5173', 'APP_BASE_URL');
+const API_BASE_URL = normalizeBaseUrl(API_BASE_URL_RAW || 'http://localhost:7071', 'API_BASE_URL');
+
+function normalizeBaseUrl(value, settingName) {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    throw new Error(`${settingName} must be a valid absolute URL: "${value}"`);
+  }
+}
+
+function getCallbackUrl(platform) {
+  return `${API_BASE_URL}/api/accounts/callback/${platform}`;
+}
+
+function buildUrl(base, query) {
+  const url = new URL(base);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
+function getAccountsRedirectUrl(query) {
+  return buildUrl(new URL('/accounts', APP_BASE_URL).toString(), query);
+}
 
 // List connected accounts
 app.http('listAccounts', {
@@ -34,22 +71,58 @@ app.http('connectAccount', {
     if (auth.status) return auth;
 
     const platform = request.params.platform;
-    const redirectBase = request.headers.get('origin') || '';
-
-    // Generate OAuth URLs per platform
-    const oauthUrls = {
-      facebook: `https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${redirectBase}/api/accounts/callback/facebook&scope=pages_manage_posts,pages_read_engagement&state=${auth.userId}`,
-      instagram: `https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${redirectBase}/api/accounts/callback/instagram&scope=instagram_basic,instagram_content_publish,pages_show_list&state=${auth.userId}`,
-      twitter: `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${process.env.TWITTER_API_KEY}&redirect_uri=${redirectBase}/api/accounts/callback/twitter&scope=tweet.read%20tweet.write%20users.read%20offline.access&state=${auth.userId}&code_challenge=challenge&code_challenge_method=plain`,
-      linkedin: `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${redirectBase}/api/accounts/callback/linkedin&scope=w_member_social%20r_liteprofile&state=${auth.userId}`,
-    };
-
-    const url = oauthUrls[platform];
-    if (!url) {
+    const supportedPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin'];
+    if (!supportedPlatforms.includes(platform)) {
       return { status: 400, jsonBody: { error: `Unsupported platform: ${platform}` } };
     }
 
-    return { jsonBody: { authUrl: url } };
+    const oauthClientIds = {
+      facebook: process.env.FACEBOOK_APP_ID,
+      instagram: process.env.FACEBOOK_APP_ID,
+      twitter: process.env.TWITTER_API_KEY,
+      linkedin: process.env.LINKEDIN_CLIENT_ID,
+    };
+
+    if (!oauthClientIds[platform]) {
+      return {
+        status: 500,
+        jsonBody: { error: `${platform} OAuth is not configured on the server` },
+      };
+    }
+
+    // Generate OAuth URLs per platform
+    const oauthUrls = {
+      facebook: buildUrl('https://www.facebook.com/v19.0/dialog/oauth', {
+        client_id: oauthClientIds.facebook,
+        redirect_uri: getCallbackUrl('facebook'),
+        scope: 'pages_manage_posts,pages_read_engagement',
+        state: auth.userId,
+      }),
+      instagram: buildUrl('https://www.facebook.com/v19.0/dialog/oauth', {
+        client_id: oauthClientIds.instagram,
+        redirect_uri: getCallbackUrl('instagram'),
+        scope: 'instagram_basic,instagram_content_publish,pages_show_list',
+        state: auth.userId,
+      }),
+      twitter: buildUrl('https://twitter.com/i/oauth2/authorize', {
+        response_type: 'code',
+        client_id: oauthClientIds.twitter,
+        redirect_uri: getCallbackUrl('twitter'),
+        scope: 'tweet.read tweet.write users.read offline.access',
+        state: auth.userId,
+        code_challenge: 'challenge',
+        code_challenge_method: 'plain',
+      }),
+      linkedin: buildUrl('https://www.linkedin.com/oauth/v2/authorization', {
+        response_type: 'code',
+        client_id: oauthClientIds.linkedin,
+        redirect_uri: getCallbackUrl('linkedin'),
+        scope: 'w_member_social r_liteprofile',
+        state: auth.userId,
+      }),
+    };
+
+    return { jsonBody: { authUrl: oauthUrls[platform] } };
   },
 });
 
@@ -70,7 +143,7 @@ app.http('accountCallback', {
     try {
       // Exchange code for tokens (platform-specific)
       // In production, each platform has its own token exchange flow
-      const account = await createItem(CONTAINER, {
+      await createItem(CONTAINER, {
         id: randomUUID(),
         userId,
         platform,
@@ -85,13 +158,13 @@ app.http('accountCallback', {
       // Redirect back to the app
       return {
         status: 302,
-        headers: { Location: '/accounts?connected=' + platform },
+        headers: { Location: getAccountsRedirectUrl({ connected: platform }) },
       };
     } catch (err) {
       context.error(`OAuth callback error for ${platform}:`, err.message);
       return {
         status: 302,
-        headers: { Location: '/accounts?error=' + encodeURIComponent(err.message) },
+        headers: { Location: getAccountsRedirectUrl({ error: err.message }) },
       };
     }
   },

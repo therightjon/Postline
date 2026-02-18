@@ -7,14 +7,14 @@
 | Component | Azure Service | Tier |
 |-----------|--------------|------|
 | Frontend | Azure Static Web Apps | Free (always) |
-| Backend API | Azure Functions (Node.js v4) | Free (1M req/mo, always) |
-| Database | Azure Cosmos DB NoSQL | Free (1000 RU/s, always) |
-| Media Storage | Azure Blob Storage | Free (5GB, 12 months) |
-| Authentication | Azure AD B2C | Free (50K MAU, always) |
+| Backend API + Scheduler | Azure Functions (Consumption, Linux, Node 20) | Pay-per-use (typically within free grant for low usage) |
+| Database | Azure Cosmos DB NoSQL | Free Tier (one account per subscription) |
+| Media + Function Host Storage | Azure Storage Account (StorageV2) | Free (5GB, 12 months) + standard rates after trial |
+| Authentication | Azure AD B2C (existing tenant) | Free tier available |
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 18+
+- [Node.js](https://nodejs.org/) 20+
 - [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local) v4
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 - [Azure Static Web Apps CLI](https://azure.github.io/static-web-apps-cli/) (`npm i -g @azure/static-web-apps-cli`) — only needed for production deploys
@@ -43,6 +43,8 @@ Edit `api/local.settings.json` with your Azure service credentials:
     "B2C_TENANT_NAME": "your-tenant",
     "B2C_CLIENT_ID": "your-client-id",
     "B2C_POLICY_NAME": "B2C_1_signupsignin",
+    "APP_BASE_URL": "http://localhost:5173",
+    "API_BASE_URL": "http://localhost:7071",
     "FACEBOOK_APP_ID": "",
     "FACEBOOK_APP_SECRET": "",
     "TWITTER_API_KEY": "",
@@ -60,13 +62,14 @@ Create a `client/.env` file for frontend auth config:
 VITE_B2C_TENANT_NAME=your-tenant
 VITE_B2C_CLIENT_ID=your-client-id
 VITE_B2C_POLICY_NAME=B2C_1_signupsignin
+VITE_API_BASE_URL=http://localhost:7071/api
 ```
 
 > **Dev mode (no B2C required):** If `VITE_B2C_CLIENT_ID` is not set, the app automatically enables a local dev bypass — authentication is mocked with a `dev@postline.app` user and no Azure AD B2C tenant is needed. The dashboard also displays demo post data when the API is not reachable.
 
 ### 3. Run locally
 
-The Vite dev server proxies all `/api/*` requests to the Azure Functions host at `http://localhost:7071`.
+If `VITE_API_BASE_URL` is not set, the Vite dev server proxies `/api/*` requests to `http://localhost:7071`.
 
 ```bash
 # Terminal 1 — start the Azure Functions API
@@ -157,21 +160,62 @@ A Timer Trigger function (`scheduler`) runs **every minute** (`0 */1 * * * *`) a
 
 ## Deploy to Azure
 
-### 1. Build the frontend
+This repository deploys with a **two-host model**:
+- **Static Web App (Free)** for frontend hosting
+- **Standalone Function App** for API + timer trigger scheduler
+
+SWA Free does not support bring-your-own Functions, and SWA-managed APIs only support HTTP triggers, so the scheduler must run in a separate Function App.
+
+### 1. Provision resources (East US / East US2 defaults)
 
 ```bash
-cd client && npm run build
+export SUBSCRIPTION_ID="<your-subscription-id>"
+export SUFFIX="<globally-unique-suffix>" # lowercase letters/numbers
+
+scripts/azure/provision.sh
 ```
 
-### 2. Deploy Static Web App
+### 2. Configure app settings and CORS
 
 ```bash
-swa deploy ./client/dist --api-location ./api --env production
+export RG="rg-postline-eastus"
+export SWA_NAME="postline-web-$SUFFIX"
+export FUNC_NAME="postline-api-$SUFFIX"
+export COSMOS_NAME="postline-cosmos-$SUFFIX"
+export STORAGE_NAME="postlinest$SUFFIX"
+
+export B2C_TENANT_NAME="<your-b2c-tenant>"
+export B2C_CLIENT_ID="<your-b2c-client-id>"
+export B2C_POLICY_NAME="B2C_1_signupsignin"
+
+# Optional until each connector is enabled
+export FACEBOOK_APP_ID=""
+export FACEBOOK_APP_SECRET=""
+export TWITTER_API_KEY=""
+export TWITTER_API_SECRET=""
+export TWITTER_BEARER_TOKEN=""
+export LINKEDIN_CLIENT_ID=""
+export LINKEDIN_CLIENT_SECRET=""
+
+scripts/azure/configure.sh
 ```
 
-### 3. Configure App Settings
+### 3. Deploy backend and frontend
 
-Set all variables from `local.settings.json` as **Application Settings** in your Azure Function App (via the Azure Portal or Azure CLI). The SWA config (`staticwebapp.config.json`) handles SPA fallback routing, forwards `/api/*` to the Functions backend, and targets the Node.js 18 runtime.
+```bash
+source .azure-postline.env
+scripts/azure/deploy.sh
+```
+
+### 4. Configure identity providers
+
+1. Configure B2C app registration redirects:
+   - `https://<swa-host>/`
+2. Configure social platform callbacks (when you enable each one):
+   - `https://<func-host>/api/accounts/callback/facebook`
+   - `https://<func-host>/api/accounts/callback/instagram`
+   - `https://<func-host>/api/accounts/callback/twitter`
+   - `https://<func-host>/api/accounts/callback/linkedin`
 
 ## Project Structure
 
@@ -205,8 +249,12 @@ Postline/
 │   │   └── middleware/
 │   │       └── auth.js             # B2C JWT validation via jwks-rsa
 │   ├── host.json                   # Functions host config (extension bundle 4.x)
-│   └── local.settings.json         # Local environment variables (not committed)
-├── staticwebapp.config.json        # SWA routing: SPA fallback, API passthrough, Node 18 runtime
+│   └── local.settings.json         # Local environment variable template
+├── scripts/azure/                  # Azure provisioning/config/deploy scripts
+│   ├── provision.sh
+│   ├── configure.sh
+│   └── deploy.sh
+├── staticwebapp.config.json        # SWA routing: SPA fallback config
 └── README.md
 ```
 

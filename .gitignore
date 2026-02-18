@@ -8,6 +8,7 @@ client/dist/
 api/local.settings.json
 client/.env
 client/.env.*
+.azure-postline.env
 
 # OS files
 .DS_Store
