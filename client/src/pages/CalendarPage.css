@@ -1,5 +1,5 @@
 .cal-controls {
-  padding: var(--space-lg);
+  padding: var(--space-sm) var(--space-lg);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -9,7 +9,7 @@
 
 .cal-month {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--foreground);
 }
@@ -39,14 +39,13 @@
 .cal-body {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-auto-rows: 1fr;
   gap: 1px;
-  height: calc(100vh - 260px);
 }
 
 .cal-day {
   min-width: 0;
   overflow: hidden;
+  aspect-ratio: 1 / 1;
   padding: var(--space-sm);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -129,7 +128,7 @@
 }
 
 @media (max-width: 768px) {
-  .cal-day {
-    min-height: 60px;
+  .cal-event-text {
+    display: none;
   }
 }

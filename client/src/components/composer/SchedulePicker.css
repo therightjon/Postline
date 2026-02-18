@@ -34,9 +34,9 @@
 }
 
 .schedule-mode-btn.active {
-  background: var(--brand-muted);
+  background: var(--brand);
   border-color: var(--brand);
-  color: var(--brand);
+  color: #fff;
   font-weight: 600;
 }
 

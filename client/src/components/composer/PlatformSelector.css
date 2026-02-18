@@ -27,9 +27,9 @@
 }
 
 .platform-toggle.active {
-  color: var(--foreground);
+  color: #fff;
   border-color: var(--brand);
-  background: var(--brand-muted);
+  background: var(--brand);
 }
 
 .platform-toggle.active span {

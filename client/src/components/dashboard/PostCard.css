@@ -31,10 +31,6 @@
   line-height: 1;
 }
 
-[data-theme="dark"] .post-platform-badge {
-  opacity: 0.7;
-}
-
 .post-card-content {
   font-size: 0.925rem;
   line-height: 1.6;

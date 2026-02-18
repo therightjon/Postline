@@ -22,6 +22,10 @@
   font-weight: 700;
   color: var(--foreground);
   line-height: 1;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .stat-label {
@@ -64,9 +68,9 @@
 }
 
 .filter-chip.active {
-  background: var(--brand-muted);
+  background: var(--brand);
   border-color: var(--brand);
-  color: var(--brand);
+  color: #fff;
   font-weight: 600;
 }
 
@@ -77,6 +81,11 @@
   border-radius: 100px;
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+.filter-chip.active .filter-count {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
 }
 
 /* --- Post list --- */

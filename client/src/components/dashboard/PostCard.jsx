@@ -44,9 +44,9 @@ export default function PostCard({ post }) {
                 key={p}
                 className="post-platform-badge"
                 style={{
-                  background: `${platform.color}15`,
-                  color: platform.color,
-                  borderColor: `${platform.color}60`,
+                  background: platform.color,
+                  color: '#fff',
+                  borderColor: platform.color,
                 }}
               >
                 <Icon size={12} />
