@@ -82,6 +82,7 @@ export async function initializeDatabase() {
   const containerDefs = [
     { id: 'posts', partitionKey: '/userId' },
     { id: 'socialAccounts', partitionKey: '/userId' },
+    { id: 'oauthStates', partitionKey: '/id' },
   ];
 
   for (const def of containerDefs) {

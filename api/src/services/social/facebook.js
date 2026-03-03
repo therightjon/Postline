@@ -7,6 +7,8 @@
  * - A connected Page access token stored in the social account
  */
 
+import { assertAllowedMediaUrl } from '../mediaSecurity.js';
+
 const GRAPH_API = 'https://graph.facebook.com/v19.0';
 
 export async function publishToFacebook(post, account) {
@@ -24,12 +26,13 @@ export async function publishToFacebook(post, account) {
 
   // If there's a media URL, create a photo post
   if (post.mediaUrl) {
+    const safeMediaUrl = assertAllowedMediaUrl(post.mediaUrl);
     const response = await fetch(`${GRAPH_API}/${pageId}/photos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...body,
-        url: post.mediaUrl,
+        url: safeMediaUrl,
       }),
     });
 

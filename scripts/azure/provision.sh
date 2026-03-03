@@ -32,7 +32,7 @@ echo "Creating storage account: $STORAGE_NAME"
 az storage account create \
   -n "$STORAGE_NAME" -g "$RG" -l "$LOC" \
   --sku Standard_LRS --kind StorageV2 \
-  --allow-blob-public-access true --https-only true >/dev/null
+  --allow-blob-public-access false --https-only true >/dev/null
 
 echo "Creating Cosmos DB account: $COSMOS_NAME (free tier)"
 az cosmosdb create -n "$COSMOS_NAME" -g "$RG" --enable-free-tier true >/dev/null
@@ -41,6 +41,7 @@ echo "Creating Cosmos DB SQL database and containers"
 az cosmosdb sql database create -a "$COSMOS_NAME" -g "$RG" -n postline --throughput 400 >/dev/null
 az cosmosdb sql container create -a "$COSMOS_NAME" -g "$RG" -d postline -n posts -p /userId >/dev/null
 az cosmosdb sql container create -a "$COSMOS_NAME" -g "$RG" -d postline -n socialAccounts -p /userId >/dev/null
+az cosmosdb sql container create -a "$COSMOS_NAME" -g "$RG" -d postline -n oauthStates -p /id >/dev/null
 
 echo "Creating Function App: $FUNC_NAME"
 az functionapp create \

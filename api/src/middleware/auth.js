@@ -4,6 +4,11 @@ import jwksClient from 'jwks-rsa';
 const TENANT_NAME = process.env.B2C_TENANT_NAME || 'postlineb2c';
 const CLIENT_ID = process.env.B2C_CLIENT_ID;
 const POLICY_NAME = process.env.B2C_POLICY_NAME || 'B2C_1_signupsignin';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.WEBSITE_SITE_NAME);
+
+if (IS_PRODUCTION && !CLIENT_ID) {
+  throw new Error('B2C_CLIENT_ID must be set in production');
+}
 
 const jwksUri = `https://${TENANT_NAME}.b2clogin.com/${TENANT_NAME}.onmicrosoft.com/${POLICY_NAME}/discovery/v2.0/keys`;
 

@@ -11,6 +11,8 @@
  * 2. Publish the container
  */
 
+import { assertAllowedMediaUrl } from '../mediaSecurity.js';
+
 const GRAPH_API = 'https://graph.facebook.com/v19.0';
 
 export async function publishToInstagram(post, account) {
@@ -24,13 +26,14 @@ export async function publishToInstagram(post, account) {
   if (!post.mediaUrl) {
     throw new Error('Instagram requires an image to publish');
   }
+  const safeMediaUrl = assertAllowedMediaUrl(post.mediaUrl);
 
   // Step 1: Create media container
   const containerResponse = await fetch(`${GRAPH_API}/${igUserId}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      image_url: post.mediaUrl,
+      image_url: safeMediaUrl,
       caption: post.content,
       access_token: accessToken,
     }),

@@ -48,7 +48,7 @@ export default function ComposePage() {
       let uploadedMediaUrl = null;
       if (mediaFile) {
         const res = await mediaApi.upload(mediaFile);
-        uploadedMediaUrl = res.url;
+        uploadedMediaUrl = res.blobUrl || res.url;
       }
       await postsApi.create({
         content,
@@ -73,7 +73,7 @@ export default function ComposePage() {
       let uploadedMediaUrl = null;
       if (mediaFile) {
         const res = await mediaApi.upload(mediaFile);
-        uploadedMediaUrl = res.url;
+        uploadedMediaUrl = res.blobUrl || res.url;
       }
 
       const postData = {

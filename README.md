@@ -40,6 +40,12 @@ Edit `api/local.settings.json` with your Azure service credentials:
     "COSMOS_DATABASE": "postline",
     "BLOB_CONNECTION_STRING": "your-blob-connection-string",
     "BLOB_CONTAINER": "media",
+    "MEDIA_ALLOWED_HOSTS": "yourstorage.blob.core.windows.net",
+    "MEDIA_SAS_TTL_MINUTES": "60",
+    "PUBLISH_MEDIA_SAS_TTL_MINUTES": "120",
+    "MAX_MEDIA_BYTES": "10485760",
+    "ALLOWED_MEDIA_TYPES": "image/jpeg,image/png,image/webp,image/gif,video/mp4",
+    "OAUTH_STATE_TTL_MS": "600000",
     "B2C_TENANT_NAME": "your-tenant",
     "B2C_CLIENT_ID": "your-client-id",
     "B2C_POLICY_NAME": "B2C_1_signupsignin",
@@ -102,9 +108,9 @@ All endpoints require a valid Azure AD B2C bearer token in the `Authorization` h
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `POST` | `/api/media` | Upload an image/video file (multipart form); returns `{ url, name, size }` |
+| `POST` | `/api/media` | Upload an image/video file (multipart form); returns `{ url, blobUrl, name, size, contentType }` |
 
-Uploaded files are stored in Azure Blob Storage in the `media` container with public blob access.
+Uploaded files are stored in Azure Blob Storage in a private `media` container. `url` is a short-lived signed read URL for rendering; `blobUrl` is the canonical storage URL to persist with posts.
 
 ### Social Accounts
 
@@ -129,6 +135,7 @@ A Timer Trigger function (`scheduler`) runs **every minute** (`0 */1 * * * *`) a
 |-----------|--------------|----------|
 | `posts` | `/userId` | User posts in all statuses |
 | `socialAccounts` | `/userId` | Connected OAuth accounts per user |
+| `oauthStates` | `/id` | Short-lived OAuth state records for callback validation |
 
 ## Social Media API Setup
 
@@ -196,6 +203,14 @@ export TWITTER_API_SECRET=""
 export TWITTER_BEARER_TOKEN=""
 export LINKEDIN_CLIENT_ID=""
 export LINKEDIN_CLIENT_SECRET=""
+
+# Optional hardening overrides (safe defaults are applied by configure.sh)
+export MEDIA_ALLOWED_HOSTS="$STORAGE_NAME.blob.core.windows.net"
+export MEDIA_SAS_TTL_MINUTES="60"
+export PUBLISH_MEDIA_SAS_TTL_MINUTES="120"
+export MAX_MEDIA_BYTES="10485760"
+export ALLOWED_MEDIA_TYPES="image/jpeg,image/png,image/webp,image/gif,video/mp4"
+export OAUTH_STATE_TTL_MS="600000"
 
 scripts/azure/configure.sh
 ```

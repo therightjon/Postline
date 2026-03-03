@@ -7,6 +7,8 @@
  * - OAuth token with `w_member_social` scope
  */
 
+import { assertAllowedMediaUrl } from '../mediaSecurity.js';
+
 const LINKEDIN_API = 'https://api.linkedin.com/v2';
 
 export async function publishToLinkedIn(post, account) {
@@ -36,7 +38,11 @@ export async function publishToLinkedIn(post, account) {
   // If there's media, register and upload it first
   if (post.mediaUrl) {
     try {
-      const mediaAsset = await uploadLinkedInMedia(post.mediaUrl, personUrn, accessToken);
+      const mediaAsset = await uploadLinkedInMedia(
+        assertAllowedMediaUrl(post.mediaUrl),
+        personUrn,
+        accessToken
+      );
       shareBody.specificContent['com.linkedin.ugc.ShareContent'].media = [
         {
           status: 'READY',
@@ -104,6 +110,9 @@ async function uploadLinkedInMedia(mediaUrl, personUrn, accessToken) {
 
   // Step 2: Upload the image
   const imageResponse = await fetch(mediaUrl);
+  if (!imageResponse.ok) {
+    throw new Error('Failed to fetch media for LinkedIn upload');
+  }
   const imageBuffer = await imageResponse.arrayBuffer();
 
   const uploadResponse = await fetch(uploadUrl, {
