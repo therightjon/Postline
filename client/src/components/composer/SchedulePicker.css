@@ -21,16 +21,22 @@
   font-weight: 500;
   color: var(--muted-foreground);
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: var(--shadow-sm);
 }
 
 .schedule-mode-btn:hover {
   border-color: var(--brand);
   color: var(--foreground);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.schedule-mode-btn:active {
+  transform: translateY(0);
 }
 
 .schedule-mode-btn.active {
@@ -38,6 +44,7 @@
   border-color: var(--brand);
   color: #fff;
   font-weight: 600;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 25%, transparent);
 }
 
 .schedule-datetime {

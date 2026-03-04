@@ -215,13 +215,13 @@ button, [role="button"], .button {
   box-shadow: var(--shadow-md);
 }
 
-button:not(.ghost):not(.outline):not([data-variant]):not(.schedule-mode-btn):not(.platform-toggle):not(.filter-chip) {
+button:not(.ghost):not(.outline):not([data-variant]):not(.schedule-mode-btn):not(.platform-toggle):not(.filter-chip):not(.content-tab):not(.copy-from-btn):not(.copy-from-option) {
   background: var(--brand);
   color: #fff;
   border: none;
   box-shadow: var(--shadow-sm);
 }
-button:not(.ghost):not(.outline):not([data-variant]):not(.schedule-mode-btn):not(.platform-toggle):not(.filter-chip):hover {
+button:not(.ghost):not(.outline):not([data-variant]):not(.schedule-mode-btn):not(.platform-toggle):not(.filter-chip):not(.content-tab):not(.copy-from-btn):not(.copy-from-option):hover {
   background: var(--brand-hover);
   box-shadow: var(--shadow-md);
 }

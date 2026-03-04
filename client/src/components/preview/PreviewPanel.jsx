@@ -12,7 +12,7 @@ const PREVIEW_MAP = {
   linkedin: LinkedInPreview,
 };
 
-export default function PreviewPanel({ content, platforms, mediaUrl }) {
+export default function PreviewPanel({ content, platforms, mediaUrl, platformContent }) {
   if (platforms.length === 0) {
     return (
       <div className="preview-empty glass-card">
@@ -26,8 +26,11 @@ export default function PreviewPanel({ content, platforms, mediaUrl }) {
       {platforms.map(p => {
         const Preview = PREVIEW_MAP[p];
         if (!Preview) return null;
+        const effectiveContent = platformContent?.[p] !== undefined
+          ? platformContent[p]
+          : (content || '');
         return (
-          <Preview key={p} content={content} mediaUrl={mediaUrl} />
+          <Preview key={p} content={effectiveContent} mediaUrl={mediaUrl} />
         );
       })}
     </div>

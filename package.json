@@ -1,0 +1,10 @@
+{
+  "name": "postline-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix client run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev:api": "npm --prefix api run start",
+    "install:all": "npm --prefix client install && npm --prefix api install"
+  }
+}

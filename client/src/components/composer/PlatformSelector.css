@@ -1,35 +1,46 @@
 .platform-selector {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: 10px;
 }
 
 .platform-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 8px 16px;
+  padding: 9px 18px;
   font-family: var(--font-body);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--muted-foreground);
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  border-radius: 100px;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: var(--shadow-sm);
 }
 
 .platform-toggle:hover {
-  border-color: var(--brand);
+  border-color: color-mix(in srgb, var(--platform-color, var(--brand)) 50%, var(--border));
   color: var(--foreground);
+  background: color-mix(in srgb, var(--platform-color, var(--brand)) 5%, var(--card));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.platform-toggle:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .platform-toggle.active {
-  color: #fff;
-  border-color: var(--brand);
-  background: var(--brand);
+  color: color-mix(in srgb, var(--platform-color, var(--brand)) 85%, var(--foreground));
+  border-color: color-mix(in srgb, var(--platform-color, var(--brand)) 45%, transparent);
+  background: color-mix(in srgb, var(--platform-color, var(--brand)) 10%, var(--card));
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 3px color-mix(in srgb, var(--platform-color, var(--brand)) 8%, transparent);
 }
 
 .platform-toggle.active span {

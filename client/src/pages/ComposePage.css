@@ -1,51 +1,282 @@
+/* ==============================================
+   Compose Page — Content Studio
+   Editorial hierarchy · Staggered motion
+   ============================================== */
+
+/* --- Layout --- */
 .compose-layout {
   display: grid;
   grid-template-columns: 1fr 340px;
-  gap: var(--space-lg);
+  gap: var(--space-2xl);
   align-items: start;
 }
 
 .compose-editor {
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: var(--space-lg);
 }
 
+/* --- Staggered entrance --- */
+@keyframes composeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.compose-editor .compose-section,
+.compose-editor .compose-actions {
+  opacity: 0;
+  animation: composeSlideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.compose-editor .compose-section:nth-child(1) { animation-delay: 0.05s; }
+.compose-editor .compose-section:nth-child(2) { animation-delay: 0.12s; }
+.compose-editor .compose-section:nth-child(3) { animation-delay: 0.19s; }
+.compose-editor .compose-section:nth-child(4) { animation-delay: 0.26s; }
+.compose-editor .compose-actions { animation-delay: 0.33s; }
+
+/* --- Section cards --- */
 .compose-section {
   padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.compose-section:hover {
   box-shadow: var(--shadow-md);
 }
 
 .compose-section header {
-  margin-bottom: 10px;
+  margin-bottom: var(--space-sm);
 }
 
+.compose-section header label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-foreground);
+}
+
+/* --- Textarea — writing surface --- */
 .compose-textarea {
   width: 100%;
-  min-height: 160px;
+  min-height: 180px;
   resize: vertical;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  padding: var(--space-md);
+  font-size: 1rem;
+  line-height: 1.7;
+  padding: var(--space-md) var(--space-lg);
   border-radius: var(--radius);
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+.compose-textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-muted);
+  outline: none;
+}
+
+.compose-textarea::placeholder {
+  color: var(--faint-foreground);
+  font-style: italic;
+}
+
+/* --- Publish actions --- */
 .compose-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  gap: var(--space-md);
+  padding-top: var(--space-xs);
 }
 
+.compose-actions button {
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.compose-actions button.large {
+  padding: 12px 28px;
+}
+
+/* --- Preview sidebar --- */
 .compose-preview {
   position: sticky;
   top: var(--space-lg);
+  opacity: 0;
+  animation: composeSlideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
 }
 
+.preview-header h3 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin-bottom: var(--space-md);
+  letter-spacing: -0.01em;
+}
+
+/* ==============================================
+   Content Tabs
+   ============================================== */
+.content-section {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.content-section .compose-textarea {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  margin-top: var(--space-md);
+  padding: var(--space-lg);
+  min-height: 180px;
+  background: var(--card);
+}
+
+.content-section .compose-textarea:focus {
+  box-shadow: inset 0 0 0 0 transparent;
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.content-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-sm) var(--space-md) 0;
+  background: color-mix(in srgb, var(--muted) 60%, var(--card));
+}
+
+.content-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 12px;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.content-tab:hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+
+.content-tab.active {
+  color: color-mix(in srgb, var(--tab-color, var(--brand)) 75%, var(--foreground));
+  border-bottom-color: var(--tab-color, var(--brand));
+  font-weight: 600;
+  background: var(--card);
+}
+
+/* --- Content bottom bar --- */
+.content-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  background: color-mix(in srgb, var(--muted) 30%, var(--card));
+}
+
+/* --- Copy From dropdown --- */
+.copy-from-wrapper {
+  position: relative;
+}
+
+.copy-from-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.copy-from-btn:hover {
+  color: var(--foreground);
+  border-color: var(--brand);
+  background: var(--brand-muted);
+}
+
+@keyframes copyMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.copy-from-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  z-index: 10;
+  min-width: 170px;
+  animation: copyMenuIn 0.15s ease-out;
+}
+
+.copy-from-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  font-size: 0.83rem;
+  color: var(--foreground);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-align: left;
+}
+
+.copy-from-option:hover {
+  background: var(--brand-muted);
+}
+
+/* --- Responsive --- */
 @media (max-width: 900px) {
   .compose-layout {
     grid-template-columns: 1fr;
+    gap: var(--space-lg);
   }
   .compose-preview {
     position: static;
