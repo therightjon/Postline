@@ -9,7 +9,7 @@
  * Uses OAuth 2.0 user context for posting on behalf of users.
  */
 
-import { assertAllowedMediaUrl } from '../mediaSecurity.js';
+import { assertAllowedMediaUrl, safeFetchMedia } from '../mediaSecurity.js';
 
 const TWITTER_API = 'https://api.twitter.com/2';
 
@@ -59,12 +59,8 @@ async function uploadTwitterMedia(mediaUrl, account) {
   // This is a simplified version — full implementation requires chunked upload for large files
   const uploadUrl = 'https://upload.twitter.com/1.1/media/upload.json';
 
-  const mediaResponse = await fetch(mediaUrl);
-  if (!mediaResponse.ok) {
-    throw new Error('Failed to fetch media for Twitter upload');
-  }
-  const mediaBuffer = await mediaResponse.arrayBuffer();
-  const base64 = Buffer.from(mediaBuffer).toString('base64');
+  const { buffer } = await safeFetchMedia(mediaUrl);
+  const base64 = buffer.toString('base64');
 
   const formBody = new URLSearchParams({
     media_data: base64,

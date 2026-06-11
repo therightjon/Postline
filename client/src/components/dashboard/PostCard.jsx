@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Edit3, Trash2, Send, Clock, CheckCircle, XCircle, Instagram, Facebook, Twitter, Linkedin } from 'lucide-react';
 import './PostCard.css';
@@ -28,8 +28,19 @@ function formatDate(dateStr) {
   });
 }
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, onPublish }) {
   const StatusIcon = STATUS_ICONS[post.status] || Edit3;
+  const [publishing, setPublishing] = useState(false);
+
+  async function handlePublishClick() {
+    if (!onPublish || publishing) return;
+    setPublishing(true);
+    try {
+      await onPublish(post);
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   return (
     <article className="card post-card">
@@ -95,9 +106,9 @@ export default function PostCard({ post }) {
             </button>
           </Link>
           {post.status === 'draft' && (
-            <button className="small">
+            <button className="small" onClick={handlePublishClick} disabled={publishing}>
               <Send size={14} />
-              Publish
+              {publishing ? 'Publishing…' : 'Publish'}
             </button>
           )}
         </div>

@@ -41,7 +41,9 @@ echo "Creating Cosmos DB SQL database and containers"
 az cosmosdb sql database create -a "$COSMOS_NAME" -g "$RG" -n postline --throughput 400 >/dev/null
 az cosmosdb sql container create -a "$COSMOS_NAME" -g "$RG" -d postline -n posts -p /userId >/dev/null
 az cosmosdb sql container create -a "$COSMOS_NAME" -g "$RG" -d postline -n socialAccounts -p /userId >/dev/null
-az cosmosdb sql container create -a "$COSMOS_NAME" -g "$RG" -d postline -n oauthStates -p /id >/dev/null
+# --ttl -1 enables per-item TTL: ephemeral OAuth state records carry their own
+# ttl and auto-purge; records without a ttl field (the owner claim) persist.
+az cosmosdb sql container create -a "$COSMOS_NAME" -g "$RG" -d postline -n oauthStates -p /id --ttl -1 >/dev/null
 
 echo "Creating Function App: $FUNC_NAME"
 az functionapp create \

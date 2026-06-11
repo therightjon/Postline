@@ -5,6 +5,7 @@
     "dev": "npm --prefix client run dev",
     "dev:client": "npm --prefix client run dev",
     "dev:api": "npm --prefix api run start",
-    "install:all": "npm --prefix client install && npm --prefix api install"
+    "install:all": "npm --prefix client install && npm --prefix api install",
+    "hash-password": "node scripts/hash-password.mjs"
   }
 }

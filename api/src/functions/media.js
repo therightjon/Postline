@@ -41,10 +41,11 @@ app.http('uploadMedia', {
       const blobUrl = await uploadMedia(buffer, file.name, contentType);
       const url = toClientMediaUrl(blobUrl);
 
+      // Return only the short-lived signed URL — never the unsigned blob URL,
+      // which would remain valid after the SAS expires and could be cached/shared.
       return {
         jsonBody: {
           url,
-          blobUrl,
           name: file.name,
           size: buffer.length,
           contentType,

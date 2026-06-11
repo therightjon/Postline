@@ -2,6 +2,8 @@ import { app } from '@azure/functions';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { createItem, queryItems, deleteItem } from '../services/cosmos.js';
 import { requireAuth } from '../middleware/auth.js';
+import { encryptSecret } from '../services/crypto.js';
+import { exchangeCodeForTokens } from '../services/social/oauth.js';
 
 const CONTAINER = 'socialAccounts';
 const OAUTH_STATE_CONTAINER = 'oauthStates';
@@ -63,10 +65,14 @@ async function createOAuthState({ userId, platform, pkceVerifier }) {
   const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString();
   return createItem(OAUTH_STATE_CONTAINER, {
     id: randomUUID(),
+    kind: 'connect',
     userId,
     platform,
     pkceVerifier: pkceVerifier || null,
     expiresAt,
+    // Cosmos per-item TTL (seconds) — auto-purges when the container has TTL
+    // enabled; expiry is still enforced in code regardless.
+    ttl: Math.ceil(OAUTH_STATE_TTL_MS / 1000),
   });
 }
 
@@ -168,7 +174,7 @@ app.http('connectAccount', {
         response_type: 'code',
         client_id: oauthClientIds.linkedin,
         redirect_uri: getCallbackUrl('linkedin'),
-        scope: 'w_member_social r_liteprofile',
+        scope: 'openid profile w_member_social',
         state: state.id,
       }),
     };
@@ -197,7 +203,7 @@ app.http('accountCallback', {
 
     try {
       const oauthState = await getOAuthState(stateId);
-      if (!oauthState) {
+      if (!oauthState || oauthState.kind !== 'connect') {
         throw new Error('Invalid OAuth state');
       }
       if (oauthState.platform !== platform) {
@@ -209,32 +215,115 @@ app.http('accountCallback', {
         throw new Error('OAuth state expired');
       }
 
+      // Single-use: burn the connect state immediately.
       await consumeOAuthState(stateId);
 
-      // Exchange code for tokens (platform-specific)
-      // In production, each platform has its own token exchange flow
-      await createItem(CONTAINER, {
+      // Do NOT create the account here. This endpoint is unauthenticated (it is
+      // a provider redirect), so we only stage a short-lived pending record and
+      // hand a finalize id back to the app. The account is created later by the
+      // authenticated /accounts/finalize call, which binds it to the signed-in
+      // user — closing the callback account-binding forgery path (TM-001).
+      const pending = await createItem(OAUTH_STATE_CONTAINER, {
         id: randomUUID(),
+        kind: 'pending-finalize',
         userId: oauthState.userId,
         platform,
-        platformName: platform.charAt(0).toUpperCase() + platform.slice(1),
-        platformUsername: 'connected_user',
-        accessToken: code, // In production, exchange for real token
-        refreshToken: null,
-        tokenExpiresAt: null,
-        connectedAt: new Date().toISOString(),
+        code,
+        pkceVerifier: oauthState.pkceVerifier || null,
+        expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString(),
+        ttl: Math.ceil(OAUTH_STATE_TTL_MS / 1000),
       });
 
-      // Redirect back to the app
       return {
         status: 302,
-        headers: { Location: getAccountsRedirectUrl({ connected: platform }) },
+        headers: { Location: getAccountsRedirectUrl({ finalize: pending.id, platform }) },
       };
     } catch (err) {
+      // Keep the redirected message generic; log specifics server-side only.
       context.error(`OAuth callback error for ${platform}:`, err.message);
       return {
         status: 302,
-        headers: { Location: getAccountsRedirectUrl({ error: err.message }) },
+        headers: { Location: getAccountsRedirectUrl({ error: 'connection_failed' }) },
+      };
+    }
+  },
+});
+
+// Complete an OAuth connection — authenticated, so the new account is bound to
+// the signed-in user (the security pivot of the staged-callback design).
+app.http('finalizeConnection', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'accounts/finalize',
+  handler: async (request, context) => {
+    const auth = await requireAuth(request);
+    if (auth.status) return auth;
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return { status: 400, jsonBody: { error: 'Invalid request body' } };
+    }
+
+    const finalizeId = body?.finalizeId;
+    if (!finalizeId) {
+      return { status: 400, jsonBody: { error: 'finalizeId is required' } };
+    }
+
+    const pending = await getOAuthState(finalizeId);
+    if (!pending || pending.kind !== 'pending-finalize') {
+      return { status: 400, jsonBody: { error: 'Invalid or expired connection request' } };
+    }
+    // Ownership binding: only the user who initiated the connect can finalize.
+    if (pending.userId !== auth.userId) {
+      await consumeOAuthState(finalizeId);
+      return { status: 403, jsonBody: { error: 'Connection does not belong to this user' } };
+    }
+    if (new Date(pending.expiresAt).getTime() < Date.now()) {
+      await consumeOAuthState(finalizeId);
+      return { status: 400, jsonBody: { error: 'Connection request expired' } };
+    }
+
+    // Single-use.
+    await consumeOAuthState(finalizeId);
+
+    try {
+      const tokens = await exchangeCodeForTokens(pending.platform, {
+        code: pending.code,
+        pkceVerifier: pending.pkceVerifier,
+        redirectUri: getCallbackUrl(pending.platform),
+      });
+
+      const account = await createItem(CONTAINER, {
+        id: randomUUID(),
+        userId: auth.userId,
+        platform: pending.platform,
+        platformName: pending.platform.charAt(0).toUpperCase() + pending.platform.slice(1),
+        platformUsername: tokens.platformUsername || 'connected_user',
+        accessToken: encryptSecret(tokens.accessToken),
+        refreshToken: encryptSecret(tokens.refreshToken || null),
+        tokenExpiresAt: tokens.tokenExpiresAt || null,
+        pageId: tokens.pageId || null,
+        instagramUserId: tokens.instagramUserId || null,
+        linkedinUrn: tokens.linkedinUrn || null,
+        connectedAt: new Date().toISOString(),
+      });
+
+      return {
+        jsonBody: {
+          id: account.id,
+          platform: account.platform,
+          platformName: account.platformName,
+          platformUsername: account.platformUsername,
+          connectedAt: account.connectedAt,
+        },
+      };
+    } catch (err) {
+      context.error(`Finalize connection failed for ${pending.platform}:`, err.message);
+      return {
+        status: 502,
+        jsonBody: { error: 'Could not complete the connection with the provider.' },
       };
     }
   },

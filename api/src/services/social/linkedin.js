@@ -7,7 +7,7 @@
  * - OAuth token with `w_member_social` scope
  */
 
-import { assertAllowedMediaUrl } from '../mediaSecurity.js';
+import { assertAllowedMediaUrl, safeFetchMedia } from '../mediaSecurity.js';
 
 const LINKEDIN_API = 'https://api.linkedin.com/v2';
 
@@ -109,18 +109,14 @@ async function uploadLinkedInMedia(mediaUrl, personUrn, accessToken) {
   }
 
   // Step 2: Upload the image
-  const imageResponse = await fetch(mediaUrl);
-  if (!imageResponse.ok) {
-    throw new Error('Failed to fetch media for LinkedIn upload');
-  }
-  const imageBuffer = await imageResponse.arrayBuffer();
+  const { buffer: imageBuffer } = await safeFetchMedia(mediaUrl);
 
   const uploadResponse = await fetch(uploadUrl, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
-    body: Buffer.from(imageBuffer),
+    body: imageBuffer,
   });
 
   if (!uploadResponse.ok) {

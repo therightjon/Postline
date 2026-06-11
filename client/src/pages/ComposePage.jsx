@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { postsApi, mediaApi } from '../services/api';
 import { Instagram, Facebook, Twitter, Linkedin, Send, Clock, Save, Copy } from 'lucide-react';
 import PlatformSelector from '../components/composer/PlatformSelector';
@@ -18,6 +18,7 @@ const PLATFORM_INFO = {
 
 export default function ComposePage() {
   const navigate = useNavigate();
+  const { id: editId } = useParams();
   const [platformContent, setPlatformContent] = useState({ all: '' });
   const [activeContentTab, setActiveContentTab] = useState('all');
   const [platforms, setPlatforms] = useState([]);
@@ -27,6 +28,8 @@ export default function ComposePage() {
   const [scheduledAt, setScheduledAt] = useState(null);
   const [publishing, setPublishing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [existingMediaUrl, setExistingMediaUrl] = useState(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const copyMenuRef = useRef(null);
 
@@ -39,6 +42,29 @@ export default function ComposePage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // When opened as /compose/:id, load the existing post for editing.
+  useEffect(() => {
+    if (!editId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const post = await postsApi.get(editId);
+        if (cancelled || !post) return;
+        setPlatformContent({ all: post.content || '' });
+        setPlatforms(post.platforms || []);
+        setMediaUrl(post.mediaUrl || null);
+        setExistingMediaUrl(post.mediaBlobUrl || null);
+        if (post.status === 'scheduled') {
+          setScheduleMode('schedule');
+          setScheduledAt(post.scheduledAt ? new Date(post.scheduledAt) : null);
+        }
+      } catch (err) {
+        if (!cancelled) setError('Could not load this post for editing.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editId]);
 
   const togglePlatform = useCallback((platform) => {
     setPlatforms(prev => {
@@ -76,6 +102,7 @@ export default function ComposePage() {
 
   const handleMediaChange = useCallback((file) => {
     setMediaFile(file);
+    setExistingMediaUrl(null); // a newly chosen file replaces any existing media
     if (file) {
       setMediaUrl(URL.createObjectURL(file));
     } else {
@@ -86,32 +113,33 @@ export default function ComposePage() {
   const handleRemoveMedia = useCallback(() => {
     setMediaFile(null);
     setMediaUrl(null);
+    setExistingMediaUrl(null);
   }, []);
 
   async function handleSaveDraft() {
     setSaving(true);
+    setError(null);
     try {
-      let uploadedMediaUrl = null;
+      let uploadedMediaUrl = existingMediaUrl;
       if (mediaFile) {
         const res = await mediaApi.upload(mediaFile);
-        uploadedMediaUrl = res.blobUrl || res.url;
+        uploadedMediaUrl = res.url;
       }
-      const effectiveContent = {};
-      platforms.forEach(p => {
-        effectiveContent[p] = platformContent[p] !== undefined ? platformContent[p] : platformContent.all;
-      });
-      await postsApi.create({
+      const payload = {
         content: platformContent.all,
-        platformContent: effectiveContent,
         platforms,
         mediaUrl: uploadedMediaUrl,
         status: 'draft',
-      });
+      };
+      if (editId) {
+        await postsApi.update(editId, payload);
+      } else {
+        await postsApi.create(payload);
+      }
       navigate('/');
     } catch (err) {
       console.error('Failed to save draft:', err);
-      alert('Post saved as draft (demo mode)');
-      navigate('/');
+      setError(err?.response?.data?.error || 'Could not save the draft. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -120,40 +148,35 @@ export default function ComposePage() {
   async function handlePublish() {
     if (!canPublish) return;
     setPublishing(true);
+    setError(null);
     try {
-      let uploadedMediaUrl = null;
+      let uploadedMediaUrl = existingMediaUrl;
       if (mediaFile) {
         const res = await mediaApi.upload(mediaFile);
-        uploadedMediaUrl = res.blobUrl || res.url;
+        uploadedMediaUrl = res.url;
       }
 
-      const effectiveContent = {};
-      platforms.forEach(p => {
-        effectiveContent[p] = platformContent[p] !== undefined ? platformContent[p] : platformContent.all;
-      });
-
-      const postData = {
+      const isSchedule = scheduleMode === 'schedule';
+      const payload = {
         content: platformContent.all,
-        platformContent: effectiveContent,
         platforms,
         mediaUrl: uploadedMediaUrl,
-        status: scheduleMode === 'schedule' ? 'scheduled' : 'draft',
-        scheduledAt: scheduleMode === 'schedule' ? scheduledAt?.toISOString() : null,
+        status: isSchedule ? 'scheduled' : 'draft',
+        scheduledAt: isSchedule ? scheduledAt?.toISOString() : null,
       };
 
-      const created = await postsApi.create(postData);
+      const saved = editId
+        ? await postsApi.update(editId, payload)
+        : await postsApi.create(payload);
 
-      if (scheduleMode === 'now') {
-        await postsApi.publish(created.id);
+      if (!isSchedule) {
+        await postsApi.publish(saved.id);
       }
 
       navigate('/');
     } catch (err) {
       console.error('Failed to publish:', err);
-      alert(scheduleMode === 'schedule'
-        ? 'Post scheduled (demo mode)'
-        : 'Post published (demo mode)');
-      navigate('/');
+      setError(err?.response?.data?.error || 'Could not publish the post. Please try again.');
     } finally {
       setPublishing(false);
     }
@@ -180,9 +203,15 @@ export default function ComposePage() {
   return (
     <div className="compose-page animate-fade-in">
       <div className="page-header">
-        <h1>Create Post</h1>
+        <h1>{editId ? 'Edit Post' : 'Create Post'}</h1>
         <p>Compose and preview your content across platforms</p>
       </div>
+
+      {error && (
+        <div className="card" role="alert" data-variant="error" style={{ marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
 
       <div className="compose-layout">
         <div className="compose-editor">
