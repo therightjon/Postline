@@ -1,0 +1,49 @@
+{
+  "_comment": "Template for api/local.settings.json (which is gitignored). Copy to local.settings.json and fill in. ALLOW_DEV_AUTH lets the API accept the client's dev-bypass token locally; it is hard-disabled whenever NODE_ENV=production or WEBSITE_SITE_NAME is set (i.e. always on Azure). ADMIN_PASSWORD_HASH: `node scripts/hash-password.mjs --generate`. SESSION_SECRET and TOKEN_ENCRYPTION_KEY: `openssl rand -base64 32`.",
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "NODE_ENV": "development",
+
+    "ALLOW_DEV_AUTH": "true",
+    "DEV_AUTH_TOKEN": "dev-token",
+
+    "ADMIN_PASSWORD_HASH": "<output of: node scripts/hash-password.mjs --generate>",
+    "SESSION_SECRET": "<base64-32-bytes>",
+    "SESSION_TTL_HOURS": "12",
+
+    "COSMOS_ENDPOINT": "https://<account>.documents.azure.com:443/",
+    "COSMOS_KEY": "<cosmos-key-or-empty-when-using-managed-identity>",
+    "COSMOS_DATABASE": "postline",
+
+    "BLOB_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net",
+    "BLOB_CONTAINER": "media",
+
+    "TOKEN_ENCRYPTION_KEY": "<base64-32-bytes>",
+
+    "APP_BASE_URL": "http://localhost:5173",
+    "API_BASE_URL": "http://localhost:7071",
+
+    "FACEBOOK_APP_ID": "",
+    "FACEBOOK_APP_SECRET": "",
+    "TWITTER_API_KEY": "",
+    "TWITTER_API_SECRET": "",
+    "LINKEDIN_CLIENT_ID": "",
+    "LINKEDIN_CLIENT_SECRET": "",
+
+    "GOOGLE_CLIENT_ID": "",
+    "GOOGLE_CLIENT_SECRET": "",
+    "MICROSOFT_CLIENT_ID": "",
+    "MICROSOFT_CLIENT_SECRET": "",
+    "GITHUB_CLIENT_ID": "",
+    "GITHUB_CLIENT_SECRET": "",
+    "FACEBOOK_LOGIN_APP_ID": "",
+    "FACEBOOK_LOGIN_APP_SECRET": "",
+    "ALLOWED_EMAILS": ""
+  },
+  "Host": {
+    "CORS": "http://localhost:5173",
+    "CORSCredentials": false
+  }
+}

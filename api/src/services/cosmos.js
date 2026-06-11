@@ -2,7 +2,12 @@ import { CosmosClient } from '@azure/cosmos';
 
 let client = null;
 let database = null;
+let initPromise = null;
 const containers = {};
+
+// When true (docker-compose / emulator), the database and containers are
+// created on first use instead of by provisioning scripts.
+const AUTO_INIT = process.env.COSMOS_AUTO_INIT === 'true';
 
 function getClient() {
   if (!client) {
@@ -13,20 +18,31 @@ function getClient() {
     }
     client = new CosmosClient({ endpoint, key });
     database = client.database(process.env.COSMOS_DATABASE || 'postline');
+    if (AUTO_INIT) {
+      initPromise = initializeDatabase();
+    }
   }
   return database;
 }
 
 function getContainer(name) {
   if (!containers[name]) {
-    containers[name] = getClient().container(name);
+    const db = getClient();
+    containers[name] = db.container(name);
   }
   return containers[name];
+}
+
+async function ensureInitialized() {
+  if (initPromise) {
+    await initPromise;
+  }
 }
 
 // --- CRUD Helpers ---
 
 export async function createItem(containerName, item) {
+  await ensureInitialized();
   const container = getContainer(containerName);
   const { resource } = await container.items.create({
     ...item,
@@ -37,12 +53,14 @@ export async function createItem(containerName, item) {
 }
 
 export async function getItem(containerName, id, partitionKey) {
+  await ensureInitialized();
   const container = getContainer(containerName);
   const { resource } = await container.item(id, partitionKey || id).read();
   return resource;
 }
 
 export async function updateItem(containerName, id, partitionKey, updates) {
+  await ensureInitialized();
   const container = getContainer(containerName);
   const { resource: existing } = await container.item(id, partitionKey || id).read();
   const updated = {
@@ -55,11 +73,13 @@ export async function updateItem(containerName, id, partitionKey, updates) {
 }
 
 export async function deleteItem(containerName, id, partitionKey) {
+  await ensureInitialized();
   const container = getContainer(containerName);
   await container.item(id, partitionKey || id).delete();
 }
 
 export async function queryItems(containerName, query, parameters = []) {
+  await ensureInitialized();
   const container = getContainer(containerName);
   const { resources } = await container.items
     .query({ query, parameters })
@@ -78,17 +98,15 @@ export async function listByUser(containerName, userId) {
 // --- Initialize Database ---
 
 export async function initializeDatabase() {
-  const db = getClient();
+  const databaseName = process.env.COSMOS_DATABASE || 'postline';
+  const { database: db } = await client.databases.createIfNotExists({ id: databaseName });
   const containerDefs = [
-    { id: 'posts', partitionKey: '/userId' },
-    { id: 'socialAccounts', partitionKey: '/userId' },
+    { id: 'posts', partitionKey: { paths: ['/userId'] } },
+    { id: 'socialAccounts', partitionKey: { paths: ['/userId'] } },
+    { id: 'oauthStates', partitionKey: { paths: ['/id'] }, defaultTtl: -1 },
   ];
 
   for (const def of containerDefs) {
-    try {
-      await db.containers.createIfNotExists(def);
-    } catch (err) {
-      // Container may already exist — safe to ignore
-    }
+    await db.containers.createIfNotExists(def);
   }
 }

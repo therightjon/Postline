@@ -1,9 +1,97 @@
 import { app } from '@azure/functions';
-import { randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { createItem, queryItems, deleteItem } from '../services/cosmos.js';
 import { requireAuth } from '../middleware/auth.js';
+import { encryptSecret } from '../services/crypto.js';
+import { exchangeCodeForTokens } from '../services/social/oauth.js';
 
 const CONTAINER = 'socialAccounts';
+const OAUTH_STATE_CONTAINER = 'oauthStates';
+const OAUTH_STATE_TTL_MS = Number.parseInt(process.env.OAUTH_STATE_TTL_MS || '600000', 10);
+const SUPPORTED_PLATFORMS = ['facebook', 'instagram', 'twitter', 'linkedin'];
+const APP_BASE_URL_RAW = process.env.APP_BASE_URL;
+const API_BASE_URL_RAW = process.env.API_BASE_URL;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.WEBSITE_SITE_NAME);
+
+if (IS_PRODUCTION && (!APP_BASE_URL_RAW || !API_BASE_URL_RAW)) {
+  throw new Error('APP_BASE_URL and API_BASE_URL must be set in production');
+}
+
+const APP_BASE_URL = normalizeBaseUrl(APP_BASE_URL_RAW || 'http://localhost:5173', 'APP_BASE_URL');
+const API_BASE_URL = normalizeBaseUrl(API_BASE_URL_RAW || 'http://localhost:7071', 'API_BASE_URL');
+
+function normalizeBaseUrl(value, settingName) {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    throw new Error(`${settingName} must be a valid absolute URL: "${value}"`);
+  }
+}
+
+function getCallbackUrl(platform) {
+  return `${API_BASE_URL}/api/accounts/callback/${platform}`;
+}
+
+function buildUrl(base, query) {
+  const url = new URL(base);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
+function getAccountsRedirectUrl(query) {
+  return buildUrl(new URL('/accounts', APP_BASE_URL).toString(), query);
+}
+
+function toBase64Url(buffer) {
+  return buffer
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function createPkcePair() {
+  const verifier = toBase64Url(randomBytes(32));
+  const challenge = toBase64Url(createHash('sha256').update(verifier).digest());
+  return { verifier, challenge };
+}
+
+async function createOAuthState({ userId, platform, pkceVerifier }) {
+  const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString();
+  return createItem(OAUTH_STATE_CONTAINER, {
+    id: randomUUID(),
+    kind: 'connect',
+    userId,
+    platform,
+    pkceVerifier: pkceVerifier || null,
+    expiresAt,
+    // Cosmos per-item TTL (seconds) — auto-purges when the container has TTL
+    // enabled; expiry is still enforced in code regardless.
+    ttl: Math.ceil(OAUTH_STATE_TTL_MS / 1000),
+  });
+}
+
+async function getOAuthState(stateId) {
+  const matches = await queryItems(
+    OAUTH_STATE_CONTAINER,
+    'SELECT TOP 1 * FROM c WHERE c.id = @stateId',
+    [{ name: '@stateId', value: stateId }]
+  );
+  return matches[0] || null;
+}
+
+async function consumeOAuthState(stateId) {
+  try {
+    await deleteItem(OAUTH_STATE_CONTAINER, stateId, stateId);
+  } catch {
+    // Ignore state cleanup failures to avoid blocking callback completion.
+  }
+}
 
 // List connected accounts
 app.http('listAccounts', {
@@ -34,22 +122,64 @@ app.http('connectAccount', {
     if (auth.status) return auth;
 
     const platform = request.params.platform;
-    const redirectBase = request.headers.get('origin') || '';
-
-    // Generate OAuth URLs per platform
-    const oauthUrls = {
-      facebook: `https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${redirectBase}/api/accounts/callback/facebook&scope=pages_manage_posts,pages_read_engagement&state=${auth.userId}`,
-      instagram: `https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${redirectBase}/api/accounts/callback/instagram&scope=instagram_basic,instagram_content_publish,pages_show_list&state=${auth.userId}`,
-      twitter: `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${process.env.TWITTER_API_KEY}&redirect_uri=${redirectBase}/api/accounts/callback/twitter&scope=tweet.read%20tweet.write%20users.read%20offline.access&state=${auth.userId}&code_challenge=challenge&code_challenge_method=plain`,
-      linkedin: `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${redirectBase}/api/accounts/callback/linkedin&scope=w_member_social%20r_liteprofile&state=${auth.userId}`,
-    };
-
-    const url = oauthUrls[platform];
-    if (!url) {
+    if (!SUPPORTED_PLATFORMS.includes(platform)) {
       return { status: 400, jsonBody: { error: `Unsupported platform: ${platform}` } };
     }
 
-    return { jsonBody: { authUrl: url } };
+    const oauthClientIds = {
+      facebook: process.env.FACEBOOK_APP_ID,
+      instagram: process.env.FACEBOOK_APP_ID,
+      twitter: process.env.TWITTER_API_KEY,
+      linkedin: process.env.LINKEDIN_CLIENT_ID,
+    };
+
+    if (!oauthClientIds[platform]) {
+      return {
+        status: 500,
+        jsonBody: { error: `${platform} OAuth is not configured on the server` },
+      };
+    }
+
+    const pkce = platform === 'twitter' ? createPkcePair() : null;
+    const state = await createOAuthState({
+      userId: auth.userId,
+      platform,
+      pkceVerifier: pkce?.verifier || null,
+    });
+
+    // Generate OAuth URLs per platform
+    const oauthUrls = {
+      facebook: buildUrl('https://www.facebook.com/v19.0/dialog/oauth', {
+        client_id: oauthClientIds.facebook,
+        redirect_uri: getCallbackUrl('facebook'),
+        scope: 'pages_manage_posts,pages_read_engagement',
+        state: state.id,
+      }),
+      instagram: buildUrl('https://www.facebook.com/v19.0/dialog/oauth', {
+        client_id: oauthClientIds.instagram,
+        redirect_uri: getCallbackUrl('instagram'),
+        scope: 'instagram_basic,instagram_content_publish,pages_show_list',
+        state: state.id,
+      }),
+      twitter: buildUrl('https://twitter.com/i/oauth2/authorize', {
+        response_type: 'code',
+        client_id: oauthClientIds.twitter,
+        redirect_uri: getCallbackUrl('twitter'),
+        scope: 'tweet.read tweet.write users.read offline.access',
+        state: state.id,
+        code_challenge: pkce.challenge,
+        code_challenge_method: 'S256',
+      }),
+      linkedin: buildUrl('https://www.linkedin.com/oauth/v2/authorization', {
+        response_type: 'code',
+        client_id: oauthClientIds.linkedin,
+        redirect_uri: getCallbackUrl('linkedin'),
+        scope: 'openid profile w_member_social',
+        state: state.id,
+      }),
+    };
+
+    return { jsonBody: { authUrl: oauthUrls[platform] } };
   },
 });
 
@@ -60,38 +190,140 @@ app.http('accountCallback', {
   route: 'accounts/callback/{platform}',
   handler: async (request, context) => {
     const platform = request.params.platform;
-    const code = request.query.get('code');
-    const userId = request.query.get('state');
+    if (!SUPPORTED_PLATFORMS.includes(platform)) {
+      return { status: 400, jsonBody: { error: `Unsupported platform: ${platform}` } };
+    }
 
-    if (!code || !userId) {
+    const code = request.query.get('code');
+    const stateId = request.query.get('state');
+
+    if (!code || !stateId) {
       return { status: 400, jsonBody: { error: 'Missing code or state' } };
     }
 
     try {
-      // Exchange code for tokens (platform-specific)
-      // In production, each platform has its own token exchange flow
-      const account = await createItem(CONTAINER, {
+      const oauthState = await getOAuthState(stateId);
+      if (!oauthState || oauthState.kind !== 'connect') {
+        throw new Error('Invalid OAuth state');
+      }
+      if (oauthState.platform !== platform) {
+        await consumeOAuthState(stateId);
+        throw new Error('OAuth state does not match platform');
+      }
+      if (new Date(oauthState.expiresAt).getTime() < Date.now()) {
+        await consumeOAuthState(stateId);
+        throw new Error('OAuth state expired');
+      }
+
+      // Single-use: burn the connect state immediately.
+      await consumeOAuthState(stateId);
+
+      // Do NOT create the account here. This endpoint is unauthenticated (it is
+      // a provider redirect), so we only stage a short-lived pending record and
+      // hand a finalize id back to the app. The account is created later by the
+      // authenticated /accounts/finalize call, which binds it to the signed-in
+      // user — closing the callback account-binding forgery path (TM-001).
+      const pending = await createItem(OAUTH_STATE_CONTAINER, {
         id: randomUUID(),
-        userId,
+        kind: 'pending-finalize',
+        userId: oauthState.userId,
         platform,
-        platformName: platform.charAt(0).toUpperCase() + platform.slice(1),
-        platformUsername: 'connected_user',
-        accessToken: code, // In production, exchange for real token
-        refreshToken: null,
-        tokenExpiresAt: null,
-        connectedAt: new Date().toISOString(),
+        code,
+        pkceVerifier: oauthState.pkceVerifier || null,
+        expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString(),
+        ttl: Math.ceil(OAUTH_STATE_TTL_MS / 1000),
       });
 
-      // Redirect back to the app
       return {
         status: 302,
-        headers: { Location: '/accounts?connected=' + platform },
+        headers: { Location: getAccountsRedirectUrl({ finalize: pending.id, platform }) },
       };
     } catch (err) {
+      // Keep the redirected message generic; log specifics server-side only.
       context.error(`OAuth callback error for ${platform}:`, err.message);
       return {
         status: 302,
-        headers: { Location: '/accounts?error=' + encodeURIComponent(err.message) },
+        headers: { Location: getAccountsRedirectUrl({ error: 'connection_failed' }) },
+      };
+    }
+  },
+});
+
+// Complete an OAuth connection — authenticated, so the new account is bound to
+// the signed-in user (the security pivot of the staged-callback design).
+app.http('finalizeConnection', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'accounts/finalize',
+  handler: async (request, context) => {
+    const auth = await requireAuth(request);
+    if (auth.status) return auth;
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return { status: 400, jsonBody: { error: 'Invalid request body' } };
+    }
+
+    const finalizeId = body?.finalizeId;
+    if (!finalizeId) {
+      return { status: 400, jsonBody: { error: 'finalizeId is required' } };
+    }
+
+    const pending = await getOAuthState(finalizeId);
+    if (!pending || pending.kind !== 'pending-finalize') {
+      return { status: 400, jsonBody: { error: 'Invalid or expired connection request' } };
+    }
+    // Ownership binding: only the user who initiated the connect can finalize.
+    if (pending.userId !== auth.userId) {
+      await consumeOAuthState(finalizeId);
+      return { status: 403, jsonBody: { error: 'Connection does not belong to this user' } };
+    }
+    if (new Date(pending.expiresAt).getTime() < Date.now()) {
+      await consumeOAuthState(finalizeId);
+      return { status: 400, jsonBody: { error: 'Connection request expired' } };
+    }
+
+    // Single-use.
+    await consumeOAuthState(finalizeId);
+
+    try {
+      const tokens = await exchangeCodeForTokens(pending.platform, {
+        code: pending.code,
+        pkceVerifier: pending.pkceVerifier,
+        redirectUri: getCallbackUrl(pending.platform),
+      });
+
+      const account = await createItem(CONTAINER, {
+        id: randomUUID(),
+        userId: auth.userId,
+        platform: pending.platform,
+        platformName: pending.platform.charAt(0).toUpperCase() + pending.platform.slice(1),
+        platformUsername: tokens.platformUsername || 'connected_user',
+        accessToken: encryptSecret(tokens.accessToken),
+        refreshToken: encryptSecret(tokens.refreshToken || null),
+        tokenExpiresAt: tokens.tokenExpiresAt || null,
+        pageId: tokens.pageId || null,
+        instagramUserId: tokens.instagramUserId || null,
+        linkedinUrn: tokens.linkedinUrn || null,
+        connectedAt: new Date().toISOString(),
+      });
+
+      return {
+        jsonBody: {
+          id: account.id,
+          platform: account.platform,
+          platformName: account.platformName,
+          platformUsername: account.platformUsername,
+          connectedAt: account.connectedAt,
+        },
+      };
+    } catch (err) {
+      context.error(`Finalize connection failed for ${pending.platform}:`, err.message);
+      return {
+        status: 502,
+        jsonBody: { error: 'Could not complete the connection with the provider.' },
       };
     }
   },

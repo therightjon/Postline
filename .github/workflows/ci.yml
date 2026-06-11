@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install API dependencies
+        run: npm ci
+        working-directory: api
+
+      - name: Syntax-check API source
+        run: |
+          set -e
+          find src -name '*.js' -print0 | xargs -0 -n1 node --check
+        working-directory: api
+
+      - name: Audit API dependencies (high+)
+        run: npm audit --audit-level=high
+        working-directory: api
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build client
+        run: npm run build
+        working-directory: client
+
+      - name: Validate Bicep template
+        run: |
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+          # Keep the committed ARM template in sync with the Bicep source.
+          az bicep build --file infra/main.bicep --outfile /tmp/azuredeploy.json
+          if ! diff -q /tmp/azuredeploy.json infra/azuredeploy.json > /dev/null 2>&1; then
+            echo "::warning::infra/azuredeploy.json is out of date — run: az bicep build --file infra/main.bicep --outfile infra/azuredeploy.json"
+          fi

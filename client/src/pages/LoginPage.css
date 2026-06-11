@@ -105,3 +105,57 @@
   margin-bottom: var(--space-md);
   opacity: 0.8;
 }
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+  margin-bottom: var(--space-xl);
+}
+
+.login-password-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--muted-foreground);
+}
+
+.login-password-row input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: var(--space-md) 0;
+  font-size: 0.95rem;
+  color: var(--foreground);
+  outline: none;
+}
+
+.login-error {
+  font-size: 0.8rem;
+  color: var(--color-error);
+  margin-bottom: var(--space-md);
+}
+
+.login-oidc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  margin-bottom: var(--space-xl);
+}
+
+.login-oidc-btn {
+  text-decoration: none;
+}
+
+.login-divider {
+  font-size: 0.75rem;
+  color: var(--faint-foreground);
+  text-align: center;
+  margin: var(--space-xs) 0;
+}

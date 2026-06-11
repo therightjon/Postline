@@ -46,6 +46,10 @@
   gap: 4px;
 }
 
+[data-theme="dark"] .status-connected {
+  color: #4ade80;
+}
+
 .status-disconnected {
   color: var(--muted-foreground);
   display: flex;

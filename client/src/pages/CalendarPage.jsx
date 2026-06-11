@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { postsApi } from '../services/api';
 import './CalendarPage.css';
 
 // Demo scheduled posts
@@ -41,6 +42,22 @@ function getFirstDayOfWeek(year, month) {
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [events, setEvents] = useState(DEMO_SCHEDULED);
+
+  useEffect(() => {
+    let cancelled = false;
+    postsApi
+      .list('scheduled')
+      .then((data) => {
+        if (!cancelled && Array.isArray(data) && data.length > 0) {
+          setEvents(data);
+        }
+      })
+      .catch(() => {
+        // API not connected — keep demo data as fallback
+      });
+    return () => { cancelled = true; };
+  }, []);
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = getDaysInMonth(year, month);
@@ -57,7 +74,7 @@ export default function CalendarPage() {
   }
 
   function getPostsForDay(day) {
-    return DEMO_SCHEDULED.filter(post => {
+    return events.filter(post => {
       const d = new Date(post.scheduledAt);
       return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
     });

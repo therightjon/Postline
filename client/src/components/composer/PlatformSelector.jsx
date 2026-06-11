@@ -19,11 +19,7 @@ export default function PlatformSelector({ selected, onToggle }) {
             key={id}
             className={`platform-toggle ${isSelected ? 'active' : ''}`}
             onClick={() => onToggle(id)}
-            style={isSelected ? {
-              '--platform-color': color,
-              borderColor: `${color}60`,
-              background: `${color}15`,
-            } : {}}
+            style={{ '--platform-color': color }}
           >
             <Icon size={18} style={isSelected ? { color } : {}} />
             <span>{label}</span>

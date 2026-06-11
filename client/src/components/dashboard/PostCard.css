@@ -72,6 +72,10 @@
   color: #16a34a;
 }
 
+[data-theme="dark"] .post-card-date.post-card-published {
+  color: #4ade80;
+}
+
 .post-card-date.post-card-scheduled {
   color: var(--brand);
 }

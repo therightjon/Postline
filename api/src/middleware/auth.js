@@ -1,62 +1,46 @@
-import jwt from 'jsonwebtoken';
-import jwksClient from 'jwks-rsa';
+import { verifySessionToken } from '../services/session.js';
 
-const TENANT_NAME = process.env.B2C_TENANT_NAME || 'postlineb2c';
-const CLIENT_ID = process.env.B2C_CLIENT_ID;
-const POLICY_NAME = process.env.B2C_POLICY_NAME || 'B2C_1_signupsignin';
+/**
+ * Bearer-token validation for the self-issued session JWT.
+ *
+ * Both login fronts (admin password, optional OIDC) mint the same HS256
+ * session token (services/session.js); this middleware is the only thing the
+ * API trusts. Identity-provider tokens never reach protected routes.
+ */
 
-const jwksUri = `https://${TENANT_NAME}.b2clogin.com/${TENANT_NAME}.onmicrosoft.com/${POLICY_NAME}/discovery/v2.0/keys`;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.WEBSITE_SITE_NAME);
 
-const client = jwksClient({
-  jwksUri,
-  cache: true,
-  rateLimit: true,
-});
+// Strictly-gated local dev affordance: accept the client's dev-bypass token so
+// the full stack runs locally with zero auth config. Can NEVER fire in
+// production (IS_PRODUCTION is always true on Azure via WEBSITE_SITE_NAME).
+const ALLOW_DEV_AUTH = !IS_PRODUCTION && process.env.ALLOW_DEV_AUTH === 'true';
+const DEV_AUTH_TOKEN = process.env.DEV_AUTH_TOKEN || 'dev-token';
 
-function getSigningKey(header, callback) {
-  client.getSigningKey(header.kid, (err, key) => {
-    if (err) return callback(err);
-    const signingKey = key.publicKey || key.rsaPublicKey;
-    callback(null, signingKey);
-  });
+// Fail fast on misconfiguration: a production deployment must have a real
+// session secret and at least one way to sign in.
+if (IS_PRODUCTION) {
+  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+    throw new Error('SESSION_SECRET must be set (at least 32 chars) in production');
+  }
+  if (!process.env.ADMIN_PASSWORD_HASH && !process.env.ADMIN_PASSWORD) {
+    throw new Error('ADMIN_PASSWORD_HASH (preferred) or ADMIN_PASSWORD must be set in production (node scripts/hash-password.mjs)');
+  }
 }
 
 /**
- * Validates a B2C access token and returns the decoded user info.
- * Returns null if no valid token is found.
+ * Validates a bearer token and returns the user info, or null.
  */
-export function authenticateRequest(request) {
-  return new Promise((resolve) => {
-    const authHeader = request.headers.get('authorization') || '';
-    const token = authHeader.replace('Bearer ', '');
+export async function authenticateRequest(request) {
+  const authHeader = request.headers.get('authorization') || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
 
-    if (!token) {
-      resolve(null);
-      return;
-    }
+  if (!token) return null;
 
-    jwt.verify(
-      token,
-      getSigningKey,
-      {
-        audience: CLIENT_ID,
-        issuer: `https://${TENANT_NAME}.b2clogin.com/${TENANT_NAME}.onmicrosoft.com/${POLICY_NAME}/v2.0/`,
-        algorithms: ['RS256'],
-      },
-      (err, decoded) => {
-        if (err) {
-          console.error('Token validation failed:', err.message);
-          resolve(null);
-        } else {
-          resolve({
-            userId: decoded.oid || decoded.sub,
-            email: decoded.emails?.[0] || decoded.email || '',
-            name: decoded.name || '',
-          });
-        }
-      }
-    );
-  });
+  if (ALLOW_DEV_AUTH && token === DEV_AUTH_TOKEN) {
+    return { userId: 'dev-user-001', email: 'dev@postline.app', name: 'Dev User' };
+  }
+
+  return verifySessionToken(token);
 }
 
 /**

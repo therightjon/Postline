@@ -4,18 +4,20 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
-  padding: var(--space-xl);
-  border: 2px dashed var(--border);
+  padding: var(--space-2xl) var(--space-xl);
+  border: 2px dashed color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--muted) 40%, var(--card));
 }
 
 .media-dropzone:hover {
   border-color: var(--brand);
   background: var(--brand-muted);
-  color: var(--foreground);
+  color: var(--brand);
+  transform: scale(1.005);
 }
 
 .media-dropzone-text {

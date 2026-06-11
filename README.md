@@ -1,214 +1,89 @@
 # Postline
 
-**Social Media Management App** — Create, preview, schedule, and publish posts to Instagram, Facebook, X (Twitter), and LinkedIn from one place.
+**Self-hosted social media scheduler.** Deploy your own copy, add your own platform keys, and compose, preview, schedule, and publish posts to **Instagram, Facebook, X (Twitter), and LinkedIn** — from infrastructure you control, on Azure's free tiers (~$0–3/month for one user).
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Ftherightjon%2FPostline%2Fmain%2Finfra%2Fazuredeploy.json)
+
+No SaaS, no per-seat pricing, no handing your social tokens to a third party: your tokens live encrypted in **your** database, and posts go out from **your** API.
+
+## How it works
+
+1. **Deploy** — the button above provisions everything (or use the [shell scripts](docs/deploy-azure.md)); pick your admin password at deploy time.
+2. **Sign in** — password out of the box; optionally add [Google / Microsoft / GitHub / Facebook login](docs/login-providers.md).
+3. **Add keys** — enable only the platforms you want by supplying their [developer app keys](docs/platform-publishing.md). Everything is optional and independent.
+4. **Post** — compose once with per-platform previews and character counts, attach media, publish now or schedule; a built-in scheduler publishes due posts every minute.
+
+## Features
+
+- Multi-platform composer with live per-platform previews and character limits
+- Drafts, scheduling calendar, immediate publish, per-platform success/failure tracking
+- Media uploads to private blob storage, served via short-lived signed URLs
+- Single-user by design: no signup surface, allowlist-gated optional social login
+- Security first: scrypt password hashing + login rate limiting, AES-256-GCM-encrypted OAuth tokens at rest, SSRF-guarded outbound fetches, forgery-resistant OAuth callbacks, strict security headers — see [docs/security.md](docs/security.md) and the [threat model](Postline-threat-model.md)
+- Runs on free tiers: Static Web Apps Free + Functions Consumption + Cosmos DB free tier
+
+## Quickstart (local)
+
+```bash
+git clone https://github.com/therightjon/Postline.git
+cd Postline
+npm run install:all
+./dev.sh
+```
+
+Open http://localhost:5173 → **Enter Dev Mode**. Zero configuration needed for the UI and a mock session; add Cosmos/Blob/platform keys as you go — see [docs/local-development.md](docs/local-development.md).
 
 ## Architecture
 
-| Component | Azure Service | Tier |
-|-----------|--------------|------|
-| Frontend | Azure Static Web Apps | Free (always) |
-| Backend API | Azure Functions (Node.js v4) | Free (1M req/mo, always) |
-| Database | Azure Cosmos DB NoSQL | Free (1000 RU/s, always) |
-| Media Storage | Azure Blob Storage | Free (5GB, 12 months) |
-| Authentication | Azure AD B2C | Free (50K MAU, always) |
-
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) 18+
-- [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local) v4
-- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
-- [Azure Static Web Apps CLI](https://azure.github.io/static-web-apps-cli/) (`npm i -g @azure/static-web-apps-cli`) — only needed for production deploys
-
-## Local Development
-
-### 1. Install dependencies
-
-```bash
-cd client && npm install
-cd ../api && npm install
+```mermaid
+flowchart LR
+  U[Browser SPA\nReact + Vite] -->|session JWT| API[Azure Functions API\nNode 20]
+  SCH[Timer trigger\nevery minute] --> API
+  API --> COSMOS[(Cosmos DB\ntokens encrypted)]
+  API --> BLOB[(Blob Storage\nprivate + SAS)]
+  API --> SOCIAL[Meta / X / LinkedIn APIs]
+  OAUTH[OAuth providers] -->|staged callbacks| API
 ```
 
-### 2. Configure environment variables
+Two hosts: a **Static Web App (Free)** serves the SPA; a standalone **Consumption Function App** runs the API and the scheduler (SWA-managed functions can't run timer triggers). The client authenticates with a self-issued session JWT — password login by default, optional OIDC providers, all minting the same token.
 
-Edit `api/local.settings.json` with your Azure service credentials:
+## Documentation
 
-```json
-{
-  "Values": {
-    "COSMOS_ENDPOINT": "https://your-cosmos.documents.azure.com:443/",
-    "COSMOS_KEY": "your-cosmos-key",
-    "COSMOS_DATABASE": "postline",
-    "BLOB_CONNECTION_STRING": "your-blob-connection-string",
-    "BLOB_CONTAINER": "media",
-    "B2C_TENANT_NAME": "your-tenant",
-    "B2C_CLIENT_ID": "your-client-id",
-    "B2C_POLICY_NAME": "B2C_1_signupsignin",
-    "FACEBOOK_APP_ID": "",
-    "FACEBOOK_APP_SECRET": "",
-    "TWITTER_API_KEY": "",
-    "TWITTER_API_SECRET": "",
-    "TWITTER_BEARER_TOKEN": "",
-    "LINKEDIN_CLIENT_ID": "",
-    "LINKEDIN_CLIENT_SECRET": ""
-  }
-}
-```
+| Doc | Contents |
+|---|---|
+| [docs/deploy-azure.md](docs/deploy-azure.md) | Deploy button, shell scripts, GitHub Actions, costs |
+| [docs/local-development.md](docs/local-development.md) | dev.sh, dev bypass, docker-compose (experimental) |
+| [docs/configuration.md](docs/configuration.md) | Every environment variable |
+| [docs/platform-publishing.md](docs/platform-publishing.md) | Meta / X / LinkedIn app setup, scopes, review caveats |
+| [docs/login-providers.md](docs/login-providers.md) | Optional Google / Microsoft / GitHub / Facebook sign-in |
+| [docs/security.md](docs/security.md) | Security model and deliberate trade-offs |
+| [docs/api.md](docs/api.md) | REST API reference and data model |
 
-Create a `client/.env` file for frontend auth config:
-
-```env
-VITE_B2C_TENANT_NAME=your-tenant
-VITE_B2C_CLIENT_ID=your-client-id
-VITE_B2C_POLICY_NAME=B2C_1_signupsignin
-```
-
-> **Dev mode (no B2C required):** If `VITE_B2C_CLIENT_ID` is not set, the app automatically enables a local dev bypass — authentication is mocked with a `dev@postline.app` user and no Azure AD B2C tenant is needed. The dashboard also displays demo post data when the API is not reachable.
-
-### 3. Run locally
-
-The Vite dev server proxies all `/api/*` requests to the Azure Functions host at `http://localhost:7071`.
-
-```bash
-# Terminal 1 — start the Azure Functions API
-cd api && func start
-
-# Terminal 2 — start the React frontend
-cd client && npm run dev
-```
-
-The app will be available at `http://localhost:5173`.
-
-## API Reference
-
-All endpoints require a valid Azure AD B2C bearer token in the `Authorization` header (bypassed automatically in dev mode).
-
-### Posts
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/posts` | List posts; optional `?status=draft\|scheduled\|published\|failed\|all` |
-| `GET` | `/api/posts/{id}` | Get a single post |
-| `POST` | `/api/posts` | Create a post (`draft` or `scheduled`) |
-| `PUT` | `/api/posts/{id}` | Update a post |
-| `DELETE` | `/api/posts/{id}` | Delete a post |
-| `POST` | `/api/posts/{id}/publish` | Immediately publish a post to all selected platforms |
-
-**Post schema:** `id`, `userId`, `content`, `platforms[]`, `mediaUrl`, `status` (`draft` | `scheduled` | `published` | `failed`), `scheduledAt`, `publishedAt`, `publishResults`, `error`, `createdAt`, `updatedAt`
-
-### Media
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| `POST` | `/api/media` | Upload an image/video file (multipart form); returns `{ url, name, size }` |
-
-Uploaded files are stored in Azure Blob Storage in the `media` container with public blob access.
-
-### Social Accounts
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/accounts` | List connected social accounts |
-| `GET` | `/api/accounts/connect/{platform}` | Get the OAuth authorization URL for a platform |
-| `GET\|POST` | `/api/accounts/callback/{platform}` | OAuth redirect callback — stores the connected account |
-| `DELETE` | `/api/accounts/{id}` | Disconnect an account |
-
-Supported `platform` values: `facebook`, `instagram`, `twitter`, `linkedin`
-
-## Scheduler
-
-A Timer Trigger function (`scheduler`) runs **every minute** (`0 */1 * * * *`) and publishes any posts whose `status` is `scheduled` and `scheduledAt <= now`. Per-platform results (success/failure) are written back to the post document.
-
-## Cosmos DB
-
-**Database:** `postline`
-
-| Container | Partition Key | Contents |
-|-----------|--------------|----------|
-| `posts` | `/userId` | User posts in all statuses |
-| `socialAccounts` | `/userId` | Connected OAuth accounts per user |
-
-## Social Media API Setup
-
-### Facebook & Instagram
-
-1. Create a [Meta Developer App](https://developers.facebook.com/)
-2. Add the **Facebook Login** and **Instagram Graph API** products
-3. Request permissions: `pages_manage_posts`, `pages_read_engagement`, `instagram_basic`, `instagram_content_publish`, `pages_show_list`
-4. Set `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET` in `local.settings.json`
-
-> **Note:** Instagram only supports posts that include an image. Text-only Instagram posts will be rejected by the API.
-
-### X (Twitter)
-
-1. Sign up at [Twitter Developer Portal](https://developer.twitter.com/)
-2. Create a Project and App with **OAuth 2.0** enabled
-3. Required scopes: `tweet.read`, `tweet.write`, `users.read`, `offline.access`
-4. Free tier: up to 1,500 tweets/month
-5. Set `TWITTER_API_KEY`, `TWITTER_API_SECRET`, and `TWITTER_BEARER_TOKEN` in `local.settings.json`
-
-> **Note:** Tweet content is automatically truncated to 280 characters server-side.
-
-### LinkedIn
-
-1. Apply for [LinkedIn Marketing Developer Platform](https://developer.linkedin.com/) access
-2. Create an app with `w_member_social` and `r_liteprofile` scopes
-3. Posts are published via the UGC Posts API (`POST /v2/ugcPosts`)
-4. Set `LINKEDIN_CLIENT_ID` and `LINKEDIN_CLIENT_SECRET` in `local.settings.json`
-
-## Deploy to Azure
-
-### 1. Build the frontend
-
-```bash
-cd client && npm run build
-```
-
-### 2. Deploy Static Web App
-
-```bash
-swa deploy ./client/dist --api-location ./api --env production
-```
-
-### 3. Configure App Settings
-
-Set all variables from `local.settings.json` as **Application Settings** in your Azure Function App (via the Azure Portal or Azure CLI). The SWA config (`staticwebapp.config.json`) handles SPA fallback routing, forwards `/api/*` to the Functions backend, and targets the Node.js 18 runtime.
-
-## Project Structure
+## Project structure
 
 ```
 Postline/
-├── client/                         # React + Vite frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── composer/           # PlatformSelector, MediaUpload, SchedulePicker, CharacterCount
-│   │   │   ├── dashboard/          # PostCard
-│   │   │   ├── layout/             # AppShell, Sidebar, ThemeToggle
-│   │   │   └── preview/            # Per-platform live previews (Facebook, Instagram, LinkedIn, X)
-│   │   ├── pages/                  # Dashboard, Compose (/compose, /compose/:id), Calendar, Accounts, Login
-│   │   ├── services/               # axios API client (api.js), MSAL auth config (authConfig.js)
-│   │   ├── context/                # AuthContext — MSAL wrapper with dev-mode bypass
-│   │   └── App.jsx                 # Root router with protected routes
-│   ├── vite.config.js              # Vite config (proxies /api → localhost:7071 in dev)
-│   └── package.json
-├── api/                            # Azure Functions (Node.js v4, ESM)
-│   ├── src/
-│   │   ├── functions/
-│   │   │   ├── posts.js            # CRUD + publish HTTP triggers
-│   │   │   ├── media.js            # Media upload HTTP trigger
-│   │   │   ├── accounts.js         # OAuth connect/callback/disconnect HTTP triggers
-│   │   │   ├── publish.js          # Cross-platform publish logic (shared + HTTP trigger)
-│   │   │   └── scheduler.js        # Timer trigger — publishes due scheduled posts every minute
-│   │   ├── services/
-│   │   │   ├── cosmos.js           # Cosmos DB singleton client + CRUD helpers
-│   │   │   ├── blob.js             # Blob Storage upload/delete helpers
-│   │   │   └── social/             # Platform publishers: facebook.js, instagram.js, twitter.js, linkedin.js
-│   │   └── middleware/
-│   │       └── auth.js             # B2C JWT validation via jwks-rsa
-│   ├── host.json                   # Functions host config (extension bundle 4.x)
-│   └── local.settings.json         # Local environment variables (not committed)
-├── staticwebapp.config.json        # SWA routing: SPA fallback, API passthrough, Node 18 runtime
-└── README.md
+├── client/                  # React + Vite SPA (pages, composer, previews, session auth)
+├── api/                     # Azure Functions v4 (Node 20, ESM)
+│   └── src/
+│       ├── functions/       # auth, posts, media, accounts, publish, scheduler (timer)
+│       ├── services/        # cosmos, blob, crypto (token encryption), mediaSecurity (SSRF),
+│       │   │                #   password (scrypt), session (JWT), rateLimit, loginProviders
+│       │   └── social/      # facebook, instagram, twitter, linkedin publishers + oauth exchange
+│       └── middleware/      # session-token validation
+├── infra/                   # main.bicep + compiled azuredeploy.json (deploy button)
+├── scripts/                 # hash-password.mjs + azure/{provision,configure,deploy}.sh
+├── .github/workflows/       # ci.yml, deploy.yml
+├── docs/                    # documentation
+└── docker-compose.yml       # experimental local stack
 ```
+
+## Honest status
+
+- The end-to-end app (auth, compose, schedule, media, scheduler) is functional and the security model is implemented and smoke-tested.
+- The platform OAuth exchanges and publishers are written against each platform's documented APIs but **have not yet been exercised against live platform apps** — if you're an early deployer and hit a quirk, please open an issue.
+- Per-platform content variants compose in the UI but only the shared text publishes today.
+- docker-compose is experimental; `dev.sh` is the supported local path.
 
 ## License
 

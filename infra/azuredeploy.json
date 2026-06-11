@@ -1,0 +1,466 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.44.1.10279",
+      "templateHash": "1089260439730082879"
+    }
+  },
+  "parameters": {
+    "suffix": {
+      "type": "string",
+      "defaultValue": "[substring(uniqueString(resourceGroup().id), 0, 8)]",
+      "minLength": 3,
+      "maxLength": 12,
+      "metadata": {
+        "description": "Globally-unique lowercase suffix for resource names (letters/numbers)."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Region for compute/data resources."
+      }
+    },
+    "swaLocation": {
+      "type": "string",
+      "defaultValue": "eastus2",
+      "allowedValues": [
+        "westus2",
+        "centralus",
+        "eastus2",
+        "westeurope",
+        "eastasia"
+      ],
+      "metadata": {
+        "description": "Region for the Static Web App (limited region set)."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "minLength": 12,
+      "metadata": {
+        "description": "Admin sign-in password. Hashed in memory by the API at startup; switch to ADMIN_PASSWORD_HASH later for defense in depth."
+      }
+    },
+    "allowedEmails": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Comma-separated emails allowed to sign in via optional OIDC providers. Empty = first sign-in claims the instance."
+      }
+    },
+    "alertEmail": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Email address for failure alerts. Empty = no alerting resources."
+      }
+    },
+    "cosmosFreeTier": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Cosmos DB free tier (one account per subscription). Set false if yours is already used."
+      }
+    },
+    "sessionSecretSeed": {
+      "type": "securestring",
+      "defaultValue": "[format('{0}{1}', newGuid(), newGuid())]",
+      "metadata": {
+        "description": "Auto-generated; do not set unless restoring a previous deployment."
+      }
+    },
+    "tokenEncryptionKeySeed": {
+      "type": "securestring",
+      "defaultValue": "[newGuid()]",
+      "metadata": {
+        "description": "Auto-generated; do not set unless restoring a previous deployment. Must decode to 32 bytes of base64."
+      }
+    }
+  },
+  "variables": {
+    "storageName": "[format('postlinest{0}', parameters('suffix'))]",
+    "cosmosName": "[format('postline-cosmos-{0}', parameters('suffix'))]",
+    "funcName": "[format('postline-api-{0}', parameters('suffix'))]",
+    "swaName": "[format('postline-web-{0}', parameters('suffix'))]",
+    "planName": "[format('postline-plan-{0}', parameters('suffix'))]",
+    "insightsName": "[format('postline-ai-{0}', parameters('suffix'))]",
+    "workspaceName": "[format('postline-logs-{0}', parameters('suffix'))]",
+    "sessionSecret": "[base64(parameters('sessionSecretSeed'))]",
+    "tokenEncryptionKey": "[base64(replace(parameters('tokenEncryptionKeySeed'), '-', ''))]",
+    "apiBaseUrl": "[format('https://{0}.azurewebsites.net', variables('funcName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('storageName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+        "allowBlobPublicAccess": false,
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2"
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2024-05-15",
+      "name": "[variables('cosmosName')]",
+      "location": "[parameters('location')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "enableFreeTier": "[parameters('cosmosFreeTier')]",
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2024-05-15",
+      "name": "[format('{0}/{1}', variables('cosmosName'), 'postline')]",
+      "properties": {
+        "resource": {
+          "id": "postline"
+        },
+        "options": {
+          "throughput": 400
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-05-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosName'), 'postline', 'posts')]",
+      "properties": {
+        "resource": {
+          "id": "posts",
+          "partitionKey": {
+            "paths": [
+              "/userId"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosName'), 'postline')]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-05-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosName'), 'postline', 'socialAccounts')]",
+      "properties": {
+        "resource": {
+          "id": "socialAccounts",
+          "partitionKey": {
+            "paths": [
+              "/userId"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosName'), 'postline')]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-05-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosName'), 'postline', 'oauthStates')]",
+      "properties": {
+        "resource": {
+          "id": "oauthStates",
+          "partitionKey": {
+            "paths": [
+              "/id"
+            ],
+            "kind": "Hash"
+          },
+          "defaultTtl": -1
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosName'), 'postline')]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('workspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('insightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('planName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/staticSites",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('swaName')]",
+      "location": "[parameters('swaLocation')]",
+      "sku": {
+        "name": "Free",
+        "tier": "Free"
+      },
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('funcName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "linuxFxVersion": "Node|20",
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "cors": {
+            "allowedOrigins": [
+              "[format('https://{0}', reference(resourceId('Microsoft.Web/staticSites', variables('swaName')), '2023-12-01').defaultHostname)]"
+            ]
+          },
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', variables('storageName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-05-01').keys[0].value, environment().suffixes.storage)]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "node"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('insightsName')), '2020-02-02').ConnectionString]"
+            },
+            {
+              "name": "NODE_ENV",
+              "value": "production"
+            },
+            {
+              "name": "COSMOS_ENDPOINT",
+              "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName')), '2024-05-15').documentEndpoint]"
+            },
+            {
+              "name": "COSMOS_KEY",
+              "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName')), '2024-05-15').primaryMasterKey]"
+            },
+            {
+              "name": "COSMOS_DATABASE",
+              "value": "postline"
+            },
+            {
+              "name": "BLOB_CONNECTION_STRING",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', variables('storageName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-05-01').keys[0].value, environment().suffixes.storage)]"
+            },
+            {
+              "name": "BLOB_CONTAINER",
+              "value": "media"
+            },
+            {
+              "name": "ADMIN_PASSWORD",
+              "value": "[parameters('adminPassword')]"
+            },
+            {
+              "name": "SESSION_SECRET",
+              "value": "[variables('sessionSecret')]"
+            },
+            {
+              "name": "SESSION_TTL_HOURS",
+              "value": "12"
+            },
+            {
+              "name": "TOKEN_ENCRYPTION_KEY",
+              "value": "[variables('tokenEncryptionKey')]"
+            },
+            {
+              "name": "ALLOWED_EMAILS",
+              "value": "[parameters('allowedEmails')]"
+            },
+            {
+              "name": "APP_BASE_URL",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/staticSites', variables('swaName')), '2023-12-01').defaultHostname)]"
+            },
+            {
+              "name": "API_BASE_URL",
+              "value": "[variables('apiBaseUrl')]"
+            },
+            {
+              "name": "MEDIA_ALLOWED_HOSTS",
+              "value": "[format('{0}.blob.{1}', variables('storageName'), environment().suffixes.storage)]"
+            },
+            {
+              "name": "MEDIA_SAS_TTL_MINUTES",
+              "value": "60"
+            },
+            {
+              "name": "PUBLISH_MEDIA_SAS_TTL_MINUTES",
+              "value": "120"
+            },
+            {
+              "name": "MAX_MEDIA_BYTES",
+              "value": "10485760"
+            },
+            {
+              "name": "ALLOWED_MEDIA_TYPES",
+              "value": "image/jpeg,image/png,image/webp,image/gif,video/mp4"
+            },
+            {
+              "name": "OAUTH_STATE_TTL_MS",
+              "value": "600000"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]",
+        "[resourceId('Microsoft.Insights/components', variables('insightsName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+        "[resourceId('Microsoft.Web/staticSites', variables('swaName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('alertEmail')))]",
+      "type": "Microsoft.Insights/actionGroups",
+      "apiVersion": "2023-01-01",
+      "name": "[format('postline-alerts-{0}', parameters('suffix'))]",
+      "location": "global",
+      "properties": {
+        "groupShortName": "postline",
+        "enabled": true,
+        "emailReceivers": [
+          {
+            "name": "owner",
+            "emailAddress": "[parameters('alertEmail')]",
+            "useCommonAlertSchema": true
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[not(empty(parameters('alertEmail')))]",
+      "type": "Microsoft.Insights/metricAlerts",
+      "apiVersion": "2018-03-01",
+      "name": "[format('postline-http5xx-{0}', parameters('suffix'))]",
+      "location": "global",
+      "properties": {
+        "description": "Postline API is returning server errors (publish failures, scheduler crashes, misconfiguration).",
+        "severity": 2,
+        "enabled": true,
+        "scopes": [
+          "[resourceId('Microsoft.Web/sites', variables('funcName'))]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT15M",
+        "criteria": {
+          "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+          "allOf": [
+            {
+              "name": "http5xx",
+              "metricName": "Http5xx",
+              "operator": "GreaterThan",
+              "threshold": 5,
+              "timeAggregation": "Total",
+              "criterionType": "StaticThresholdCriterion"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', format('postline-alerts-{0}', parameters('suffix')))]"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/actionGroups', format('postline-alerts-{0}', parameters('suffix')))]",
+        "[resourceId('Microsoft.Web/sites', variables('funcName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "staticWebAppName": {
+      "type": "string",
+      "value": "[variables('swaName')]"
+    },
+    "staticWebAppHostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/staticSites', variables('swaName')), '2023-12-01').defaultHostname]"
+    },
+    "functionAppName": {
+      "type": "string",
+      "value": "[variables('funcName')]"
+    },
+    "functionAppHostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('funcName')), '2023-12-01').defaultHostName]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[variables('cosmosName')]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageName')]"
+    },
+    "nextSteps": {
+      "type": "string",
+      "value": "Infrastructure is ready. Deploy the code: set RG/SWA_NAME/FUNC_NAME and run scripts/azure/deploy.sh, or use the GitHub Actions deploy workflow. Then sign in with the admin password you chose."
+    }
+  }
+}

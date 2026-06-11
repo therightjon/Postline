@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState(DEMO_POSTS);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadPosts();
@@ -66,6 +67,16 @@ export default function DashboardPage() {
       // API not connected — keep demo data as fallback
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePublish(post) {
+    setError(null);
+    try {
+      await postsApi.publish(post.id);
+      await loadPosts();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Could not publish the post. Please try again.');
     }
   }
 
@@ -95,6 +106,12 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {error && (
+        <div className="card" role="alert" data-variant="error" style={{ marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
 
       <div className="stats-grid">
         <article className="card stat-card">
@@ -143,7 +160,7 @@ export default function DashboardPage() {
           </article>
         ) : (
           filteredPosts.map(post => (
-            <PostCard key={post.id} post={post} />
+            <PostCard key={post.id} post={post} onPublish={handlePublish} />
           ))
         )}
       </div>
